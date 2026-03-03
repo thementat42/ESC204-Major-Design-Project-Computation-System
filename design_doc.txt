@@ -8,5 +8,5 @@ Version 1
 Version 2
 - The different sensors will output values which are read by the PiCo.
 - The PiCo processes this locally into a series of values (temperature, location, etc.). On startup it saves sensor-specific info.
-- The data visualization system picks up these values and 
+- The data visualization system picks up these values and overlays them on a map.
 
