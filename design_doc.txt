@@ -1,0 +1,12 @@
+Structure of the computation system
+
+Version 1
+- The different sensors will output values which are read by the PiCo.
+- The PiCo broadcasts then broadcasts these sensor readings to the central data analysis system. On startup it broadcasts sensor-specific calibration info.
+- The analysis system is responsible for processing this data into numbers (e.g. wind speed, temperature) and forwarding this to the data visualization system.
+
+Version 2
+- The different sensors will output values which are read by the PiCo.
+- The PiCo processes this locally into a series of values (temperature, location, etc.). On startup it saves sensor-specific info.
+- The data visualization system picks up these values and overlays them on a map.
+
