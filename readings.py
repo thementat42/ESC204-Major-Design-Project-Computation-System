@@ -6,6 +6,11 @@ import busio
 
 DEBUG = False
 
+# Wind speed - proxy with pressure
+# Temperature - BME680
+# Air Composition - BME680
+# Light Sensor - Photoresistor
+
 # bme680 info:
 # https://cdn-learn.adafruit.com/downloads/pdf/adafruit-bme680-humidity-temperature-barometic-pressure-voc-gas.pdf
 
@@ -16,7 +21,7 @@ DEBUG = False
 # Temperature in degrees celcius
 # Resistance of gas sensor in Ohms
     # This is proportional to the amount of volatile organic compound particles (VOC) in the air
-# Humidity as a percentage
+# Humidity as a percentage (not used)
 # Pressure in hPa (hectoPascals = 100 Pascals)
 # Altitude in metres (not used)
 
