@@ -10,3 +10,5 @@ Version 2
 - The PiCo processes this locally into a series of values (temperature, location, etc.). On startup it saves sensor-specific info.
 - The data visualization system picks up these values and overlays them on a map.
 
+We went with version 2 because it establishes a clean separation of concerns. The module is responsible for data processing and the visualization system is responsible for displaying it.
+With version 2, the data analysis system does not need to understand the specifics of the sensors; it just reads broadcasted data.
