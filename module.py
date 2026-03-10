@@ -61,10 +61,27 @@ gps.send_command(b"PMTK220,1000")  # 1Hz update rate
 #? Turn on everything (not all of it is parsed!)
 # gps.send_command(b'PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0')
 
+def get_gps_data(gps: adafruit_gps.GPS):
+    if not gps.has_fix:
+        return None, None
+    return gps.latitude, gps.longitude
+
 # Data sending loop
 while True:
+    gps.update()
+
+    latitude, longitude = get_gps_data(gps)
+
     # Convert python dictionary to json
-    string = json.dumps({"id": MODULE_ID, "temperature": bme.temperature, "humidity": bme.relative_humidity, "pressure": bme.pressure, "gas": bme.gas, "light": adc_to_voltage(photoresistor.value)})
+    string = json.dumps({
+        "id": MODULE_ID, 
+        "temperature": bme.temperature, 
+        "humidity": bme.relative_humidity, 
+        "pressure": bme.pressure, 
+        "gas": bme.gas, 
+        "light": adc_to_voltage(photoresistor.value), 
+        "latitude": latitude,
+        "longitude": longitude})
     
     # Send json string to laptop under station/m#/data
     mqtt_client.publish("station/" + MODULE_ID + '/data', string)
