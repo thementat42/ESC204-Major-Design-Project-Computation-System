@@ -33,6 +33,7 @@ print("Connected using MQTT")
 i2c = board.I2C()
 bme = adafruit_bme680.Adafruit_BME680_I2C(i2c)
 
+# Allow pico to communicate with photoresistor
 photoresistor_pin = board.GP26_A0
 photoresistor = analogio.AnalogIn(photoresistor_pin)
 ADC_REF = photoresistor.reference_voltage
@@ -40,6 +41,7 @@ ADC_REF = photoresistor.reference_voltage
 def adc_to_voltage(adc_value):
     return ADC_REF * (float(adc_value)/float(ADC_HIGH))
 
+# Allow pico to communicate with GPS
 tx_pin = board.GP0  # can be any pin marked TX (see pin map diagram)
 rx_pin = board.GP1  # can be any pin marked RX (see pin map diagram)
 uart = busio.UART(tx_pin, rx_pin, baudrate=9600, timeout=10)

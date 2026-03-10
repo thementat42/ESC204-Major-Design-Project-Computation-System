@@ -2,3 +2,5 @@ x.*
 __pycache__/*
 .vscode/*
 .DS_Store/*
+fake_module.py
+stop
