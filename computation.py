@@ -26,24 +26,36 @@ def on_message(client, userdata, msg):
     print(f"[{module_id}] temp={data['temperature']}C pressure={data['pressure']}  gas={data['gas']}ohms")
 
     # Compute the wind proxy
-    wind = compute_wind_proxy()
-    if wind is not None:
-        print(f"Wind proxy: {wind}")
-        
+    pairs = compute_wind_proxy()
+    if pairs:
+        for p in pairs:
+            print(f"  {p['module_a']}-{p['module_b']}: delta={p['delta_p']:.2f}hPa magnitude={p['magnitude']:.2f}")
+
 # Function to calculate the wind speed proxy
 def compute_wind_proxy():
     if len(modules) < 2:
         return None
     
-    pressures = []
-    for module_id in modules:
-        latest = modules[module_id][-1]
-        pressures.append(latest["pressure"])
+    pairs = []
+    module_ids = list(modules.keys())
 
-    delta_p = max(pressures) - min(pressures)
-    wind_proxy = math.sqrt(delta_p)
+    # Nested loop to get every unique pair of modules
+    for i in range(len(module_ids)):
+        for j in range(i + 1, len(module_ids)):
 
-    return wind_proxy
+            # Get the two module ids
+            id_a = module_ids[i]
+            id_b = module_ids[j]
+
+            # Also get their latest pressure readings
+            pres_a = modules[id_a][-1]["pressure"]
+            pres_b = modules[id_b][-1]["pressure"]
+
+            # Calculate direction info and magnitude
+            delta_p = pres_a - pres_b
+            magnitude = math.sqrt(abs(delta_p))
+
+            pairs.append({"module_a": id_a, "module_b": id_b, "delta_p": delta_p, "magnitude": magnitude})
 
 # Create MQTT client and wire to functions
 client = mqtt.Client()
