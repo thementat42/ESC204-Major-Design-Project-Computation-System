@@ -3,6 +3,8 @@ import json
 
 LAPTOP_IP = "192.168.2.45" # Change this depending on network and device
 
+modules = {}
+
 # Connection function to subscribe to the module data and print progress
 # Used by the MQTT library automatically on connection
 def on_connect(client, userdata, flags, rc):
@@ -11,9 +13,16 @@ def on_connect(client, userdata, flags, rc):
     print("Listening for modules")
 
 # Function to load the json string sent by the modules
+# Adds the data to a dictionary where each module key has a list of all readings
 def on_message(client, userdata, msg):
     data = json.loads(msg.payload)
-    print(data)
+    module_id = data["id"]
+
+    if module_id not in modules:
+        modules[module_id] = []
+
+    modules[module_id].append(data)
+    print(f"[{module_id}] temp={data['temperature']}C pressure={data['pressure']}  gas={data['gas']}ohms")
 
 # Create MQTT client and wire to functions
 client = mqtt.Client()
