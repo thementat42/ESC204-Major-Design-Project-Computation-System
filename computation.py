@@ -1,8 +1,11 @@
+from module import MODULE_ID
 import paho.mqtt.client as mqtt
 import json
 import math
 
 LAPTOP_IP = "192.168.2.45" # Change this depending on network and device
+
+from data_keys import *
 
 modules = {}
 
@@ -23,7 +26,7 @@ def on_message(client, userdata, msg):
         modules[module_id] = []
 
     modules[module_id].append(data)
-    print(f"[{module_id}] temp={data['temperature']}C pressure={data['pressure']}  gas={data['gas']}ohms")
+    print(f"[{MODULE_ID}] temp={data[TEMPERATURE]}C pressure={data[PRESSURE]}  gas={data[VOC_PERCENTAGE]}ohms")
 
     # Compute the wind proxy
     pairs = compute_wind_proxy()
@@ -48,8 +51,8 @@ def compute_wind_proxy():
             id_b = module_ids[j]
 
             # Also get their latest pressure readings
-            pres_a = modules[id_a][-1]["pressure"]
-            pres_b = modules[id_b][-1]["pressure"]
+            pres_a = modules[id_a][-1][PRESSURE]
+            pres_b = modules[id_b][-1][PRESSURE]
 
             # Calculate direction info and magnitude
             delta_p = pres_a - pres_b

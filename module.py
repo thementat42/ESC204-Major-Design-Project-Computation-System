@@ -16,6 +16,8 @@ MODULE_ID = "m01" # Make sure to change this for every pico
 LAPTOP_IP = "192.168.2.45" # Also change this depending on where and what we test this on
 ADC_HIGH = 65535
 
+from data_keys import *
+
 wifi.radio.connect(WIFI_SSID, WIFI_PASSWORD)
 print("Successfully Connected. IP:", wifi.radio.ipv4_address)
 
@@ -76,14 +78,14 @@ while True:
 
     # Convert python dictionary to json
     string = json.dumps({
-        "id": MODULE_ID, 
-        "temperature": bme.temperature, 
-        "humidity": bme.relative_humidity, 
-        "pressure": bme.pressure, 
-        "gas": bme.gas, 
-        "light": adc_to_voltage(photoresistor.value), 
-        "latitude": latitude,
-        "longitude": longitude})
+        ID: MODULE_ID, 
+        TEMPERATURE: bme.temperature, 
+        HUMIDITY: bme.relative_humidity, 
+        PRESSURE: bme.pressure, 
+        VOC_PERCENTAGE: bme.gas, 
+        LIGHT: adc_to_voltage(photoresistor.value), 
+        LATITUDE: latitude,
+        LONGITUDE: longitude})
     
     # Send json string to laptop under station/m#/data
     mqtt_client.publish("station/" + MODULE_ID + '/data', string)
