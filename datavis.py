@@ -27,49 +27,49 @@ module1_data = """
 }
 
 """
-module2_data = """
-{
+# module2_data = """
+# {
 
-"id": 2,
+# "id": 2,
 
-"temperature": 30,
+# "temperature": 30,
 
-"humidity": 45,
+# "humidity": 45,
 
-"pressure": 80,
+# "pressure": 80,
 
-"gas": 90,
+# "gas": 90,
 
-"light": 0.1100,
+# "light": 0.1100,
 
-"latitude": 20.44,
+# "latitude": 20.44,
 
-"longitude": -30.35
-}
+# "longitude": -30.35
+# }
 
-"""
+# """
 
-module3_data = """
-{
+# module3_data = """
+# {
 
-"id": 3,
+# "id": 3,
 
-"temperature": 50,
+# "temperature": 50,
 
-"humidity": 15,
+# "humidity": 15,
 
-"pressure": 120,
+# "pressure": 120,
 
-"gas": 100,
+# "gas": 100,
 
-"light": 0.5000,
+# "light": 0.5000,
 
-"latitude": 51.44,
+# "latitude": 51.44,
 
-"longitude": -2.35
-}
+# "longitude": -2.35
+# }
 
-"""
+# """
 
 # ___________________________________________________________________
 # MAIN CODE
@@ -136,8 +136,9 @@ class system:
         return cur.coords, cur.temperature, cur.humidity, cur.pressure, cur.gas, cur.light
     
     def add_module(self, temperature, humidity, pressure, gas, light, latitude, longitude):
+        '''Adds a new module'''
 
-        # Check the size of the system to make sure id not out of range or already in the system
+        # Check the size of the system 
         num = 0 # The number of modules
         cur = self.start
         while cur:
@@ -145,17 +146,40 @@ class system:
                 num += 1
                 cur = cur.next
         
-        # Create a new module to add to the system
         new_module = module((num + 1), temperature, humidity, pressure, gas, light, latitude, longitude)
+        
+        if self.start == None:
+            self.start = new_module
+        
+        # Create a new module to add to the system
         cur = self.start
         for i in range(num - 1):
             cur = cur.next
         cur.next = new_module
+    
+    def update(self, id, temperature, humidity, pressure, gas, light):
+        '''Updates module values for display'''
+        if id == 1:
+            self.start.temperature = temperature
+            self.start.humidity = humidity
+            self.start.pressure = pressure
+            self.start.gas = gas
+            self.start.light = light
+
+        else:
+            cur = self.start
+            for i in range(id):
+                cur = cur.next
+            cur.temperature = temperature
+            cur.humidity = humidity
+            cur.pressure = pressure
+            cur.gas = gas
+            cur.light = light
 
 # ___________________________________________________________________
 # RUN
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
 
 
