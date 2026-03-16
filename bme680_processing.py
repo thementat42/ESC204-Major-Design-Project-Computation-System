@@ -6,4 +6,4 @@ with open("bme680_gas_data.csv", 'r') as f:
         resistances.append(int(resistance))
 
 print(f"Average Resistance: {sum(resistances)/len(resistances)} Ohms")
-print(f"Highest Resistance: {max(resistances)} Ohms")
+print(f"Highest Resistance: {max(resistances[1:])} Ohms")
