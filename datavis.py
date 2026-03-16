@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 import pandas as pd
+import pygame as pg
+from tkinter import *
 # =======
 """
 Pressure / Gas Visualization (MQTT Version)
@@ -101,27 +103,27 @@ module2_data = """
 
 """
 
-# module3_data = """
-# {
+module3_data = """
+{
 
-# "id": 3,
+"id": 3,
 
-# "temperature": 50,
+"temperature": 50,
 
-# "humidity": 15,
+"humidity": 15,
 
-# "pressure": 120,
+"pressure": 120,
 
-# "gas": 100,
+"gas": 100,
 
-# "light": 0.5000,
+"light": 0.5000,
 
-# "latitude": 51.44,
+"latitude": 51.44,
 
-# "longitude": -2.35
-# }
+"longitude": -2.35
+}
 
-# """
+"""
 
 # ___________________________________________________________________
 # Tasks:
@@ -153,7 +155,7 @@ def values_list(modlist, key):
     return values
 
 def update(modlist):
-    '''Continuously updates values'''
+    '''Continuously updates values (animation function for heatmap)'''
     t = "temperature"
     x = "longitude"
     y = "latitude"
@@ -164,11 +166,26 @@ def update(modlist):
     
     plt.cla()
 
-    plt.scatter(long, lat, c=temps, alpha=0.6, cmap='coolwarm')
+    plt.scatter(long, lat, c=temps, marker='s', alpha=0.6, cmap='coolwarm')
     plt.colorbar(label="Temperature")
     plt.xlabel('Longitude')
-    plt.ylabel('Y values')
-    
+    plt.ylabel('Latitude')
+
+def id(modlist, i):
+    '''Returns data of module i'''
+
+    for mod in modlist:
+        if mod["id"] == i:
+            return f"{mod["temperature"]} \n {mod["humidity"]} \n {mod["pressure"]} \n {mod["gas"]} \n {mod["light"]} \n {mod["longitude"]} \n {mod["latitude"]}"
+        return "Invalid ID"
+        
+# User Interface
+def Interface(modlist):
+    num = e.get()
+    output = id(modlist, num)
+    myLabel = Label(root, text=output)
+    myLabel.pack()
+
 # ___________________________________________________________________
 # LINKED LIST REPRESENTATION
 # Define a module
@@ -538,11 +555,23 @@ def plot_realtime_pressure_map():
 
 if __name__ == "__main__":
     
-    modules = [module1_data, module2_data]
+    modules = [module1_data, module2_data, module3_data]
     sys = module_list(modules)
     ani = FuncAnimation(plt.gcf(), update(sys), interval = 500)
     plt.tight_layout()
     plt.show()
+
+    print(id(sys, 1))
+
+    root = Tk()
+
+    e = Entry(root, width=50)
+    e.pack()
+
+    myButton = Button(root, text="Enter ID", command=lambda: Interface(sys))
+    myButton.pack()
+
+    root.mainloop()
 
     mqtt_client = start_mqtt_listener()
     try:
