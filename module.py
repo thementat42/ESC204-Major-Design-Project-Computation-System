@@ -12,7 +12,7 @@ import adafruit_gps
 # Connect Pico to wi-fi (mine for now while testing)
 WIFI_SSID = "Reef"
 WIFI_PASSWORD = "Alexandria"
-MODULE_ID = "m01" # Make sure to change this for every pico
+MODULE_ID = 1 # Make sure to change this for every pico
 LAPTOP_IP = "192.168.2.45" # Also change this depending on where and what we test this on
 ADC_HIGH = 65535
 

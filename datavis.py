@@ -16,7 +16,7 @@ How this program works:
 2. This visualization subscribes to MQTT topics:
        station/+/data
 3. Each message is expected to look like:
-       {"id": "m01", "temperature": 23.1, "humidity": 40.2, "pressure": 1012.6, "gas": 123456}
+       {"id": 1, "temperature": 23.1, "humidity": 40.2, "pressure": 1012.6, "gas": 123456}
 4. The latest record from each sensor is stored and displayed.
 5. Node color represents pressure.
 6. The center/background is estimated from a linear pressure field fit.
@@ -39,10 +39,10 @@ MQTT_TOPIC = "station/+/data"
 
 # Edit these positions if your physical sensor layout is different.
 SENSOR_POSITIONS = {
-    "m01": (0.0, 0.0),
-    "m02": (2.0, 0.0),
-    "m03": (2.0, 2.0),
-    "m04": (0.0, 2.0),
+    1: (0.0, 0.0),
+    2: (2.0, 0.0),
+    3: (2.0, 2.0),
+    4: (0.0, 2.0),
 }
 
 # Shared sensor data storage
@@ -119,6 +119,10 @@ module3_data = f"""
 
 # MQTT Functions
 
+USE_MQTT = False
+TEST_STRINGS = [module1_data, module2_data, module3_data]
+
+
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("Connected to MQTT broker.")
@@ -137,6 +141,14 @@ def on_message(client, userdata, msg):
                 latest_records[sensor_id] = payload
     except Exception as e:
         print("Failed to parse MQTT message:", e)
+
+def get_current_modules():
+    if USE_MQTT:
+        with records_lock:
+            live = list(latest_records.values())
+            if live:
+                return live
+    return create_module_list(TEST_STRINGS)
 
 
 def start_mqtt_listener():
@@ -171,8 +183,11 @@ def initialize_module_plot(modlist):
 
     return fig, ax, scatter, cbar
 
-def update_modules(frame, modlist, scatter, cbar):
+def update_modules(frame, scatter, cbar):
     '''Continuously updates values (animation function for heatmap)'''
+
+    modlist = get_current_modules()
+
     temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
     long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
@@ -195,9 +210,9 @@ def get_data_for_module_id(modlist, id):
     return "Invalid ID"
         
 # User Interface
-def interface(modlist):
+def interface():
     num = e.get()
-    output = get_data_for_module_id(modlist, num)
+    output = get_data_for_module_id(get_current_modules(), num)
     myLabel = Label(root, text=output)
     myLabel.pack()
 
@@ -411,30 +426,34 @@ def plot_realtime_pressure_map():
 # RUN
 
 if __name__ == "__main__":
-    
-    modules = [module1_data, module2_data, module3_data]
-    sys = create_module_list(modules)
-    fig, ax, scatter, cbar = initialize_module_plot(sys)
-    ani = FuncAnimation(fig, update_modules, interval = 500, fargs = (sys,scatter,cbar), cache_frame_data=False)
+    mqtt_client = start_mqtt_listener() if USE_MQTT else None
+
+    initial = get_current_modules()
+    fig, ax, scatter, cbar = initialize_module_plot(initial)
+    ani = FuncAnimation(
+        fig,
+        update_modules,
+        interval=500,
+        fargs=(scatter, cbar),
+        cache_frame_data=False
+    )
+
     plt.tight_layout()
     plt.show(block=False)
 
-    print(get_data_for_module_id(sys, 2))
-
     root = Tk()
-
     e = Entry(root, width=50)
     e.pack()
 
-    myButton = Button(root, text="Enter ID", command=lambda: interface(sys))
+    myButton = Button(root, text="Enter ID", command=interface)
     myButton.pack()
 
     root.mainloop()
 
-    mqtt_client = start_mqtt_listener()
     try:
-        plot_realtime_pressure_map()
+        if USE_MQTT:
+            plot_realtime_pressure_map()
     finally:
-        mqtt_client.loop_stop()
-        mqtt_client.disconnect()
-    
+        if mqtt_client is not None:
+            mqtt_client.loop_stop()
+            mqtt_client.disconnect()
