@@ -2,7 +2,7 @@ from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
-import tkinter
+import tkinter as tk
 import json
 import threading
 import paho.mqtt.client as mqtt
@@ -213,7 +213,7 @@ def get_data_for_module_id(modlist, id):
 def interface():
     num = e.get()
     output = get_data_for_module_id(get_current_modules(), num)
-    myLabel = tkinter.Label(root, text=output)
+    myLabel = tk.Label(root, text=output)
     myLabel.pack()
 
 # _anim = None
@@ -441,11 +441,11 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show(block=False)
 
-    root = tkinter.Tk()
-    e = tkinter.Entry(root, width=50)
+    root = tk.Tk()
+    e = tk.Entry(root, width=50)
     e.pack()
 
-    myButton = tkinter.Button(root, text="Enter ID", command=interface)
+    myButton = tk.Button(root, text="Enter ID", command=interface)
     myButton.pack()
 
     root.mainloop()
