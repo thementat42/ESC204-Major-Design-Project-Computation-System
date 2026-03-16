@@ -1,12 +1,12 @@
 # <<<<<<< HEAD
 import matplotlib.pyplot as plt
-# import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 import numpy as np
-import pandas as pd
-import pygame as pg
 from tkinter import *
-# =======
+import json
+import threading
+import paho.mqtt.client as mqtt
+
 """
 Pressure / Gas Visualization (MQTT Version)
 
@@ -34,6 +34,8 @@ If your broker is not running on this computer, change BROKER_HOST below.
 import json
 import threading
 from typing import Dict
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import paho.mqtt.client as mqtt
 
 # MQTT broker settings
@@ -50,10 +52,9 @@ SENSOR_POSITIONS = {
 }
 
 # Shared sensor data storage
-latest_records: Dict[str, dict] = {}
+latest_records: dict[str, dict] = {}
 records_lock = threading.Lock()
 
-# <<<<<<< HEAD
 
 module1_data = """
 {
@@ -121,27 +122,15 @@ module3_data = """
 
 """
 
-# ___________________________________________________________________
-# Tasks:
-    # Make module and system classes - DONE
-    # Make marker display (updates in real time)
-    # Make markers temperature dependent
-    # Make pygame display to search up specific modules
-    # Make a display function to runt the whole thing
-
-# ___________________________________________________________________
-# DICTIONARY REPRESENTATION
-
-def module_list(modules):
+def create_module_list(modules):
     '''Creates a list of modules in the form of dictionaries'''
-
     mod_list = []
     for mod in modules:
         set = json.loads(mod)
         mod_list.append(set)
     return mod_list
 
-def values_list(modlist, key):
+def get_values_list(modlist, key):
     '''Extracts a given value type from each module in a list and outputs a list of those values (e.g. list of temperatures)'''
     values = [] #list of temperatures to plot
 
@@ -150,15 +139,15 @@ def values_list(modlist, key):
     
     return values
 
-def update(modlist):
+def update_modules(modlist):
     '''Continuously updates values (animation function for heatmap)'''
     t = "temperature"
     x = "longitude"
     y = "latitude"
-    temps = values_list(modlist, t)
+    temps = get_values_list(modlist, t)
     # temps = [np.random.randn(2)]
-    long = values_list(modlist, x)
-    lat = values_list(modlist, y)
+    long = get_values_list(modlist, x)
+    lat = get_values_list(modlist, y)
     
     plt.cla()
 
@@ -167,150 +156,25 @@ def update(modlist):
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
 
-def id(modlist, i):
+def get_data_for_module_id(modlist, id):
     '''Returns data of module i'''
 
     for mod in modlist:
-        if mod["id"] == int(i):
+        if mod["id"] == int(id):
             return f"Module {mod["id"]} \n Temperature: {mod["temperature"]} \n Humidity: {mod["humidity"]} \n Pressure: {mod["pressure"]} \n Air Quality: {mod["gas"]} \n Light: {mod["light"]} \n Coordinates: {(mod["longitude"], mod["latitude"])}"
     return "Invalid ID"
         
 # User Interface
-def Interface(modlist):
+def interface(modlist):
     num = e.get()
-    output = id(modlist, num)
+    output = get_data_for_module_id(modlist, num)
     myLabel = Label(root, text=output)
     myLabel.pack()
-
-# ___________________________________________________________________
-# LINKED LIST REPRESENTATION
-# Define a module
-# class module:
-#     def __init__(self, id, temperature, humidity, pressure, gas, light, latitude, longitude):
-#         self.id = id
-#         self.temperature = temperature
-#         self.humidity = humidity
-#         self.pressure = pressure
-#         self.gas = gas
-#         self.light = light
-#         self.coords = (latitude, longitude)
-#         self.next = None # Allows modules to be iterated through via a linked list
-
-# # Define a system of modules        
-# class system:
-#     def __init__(self):
-#         self.start = None
-    
-#     def size(self):
-#         '''Returns the number of modules in the system'''
-
-#         if self.start == None:
-#             return 0
-
-#         num = 0 # The number of modules
-#         cur = self.start
-#         while cur:
-#             while cur.next != None:
-#                 num += 1
-#                 cur = cur.next
-        
-#         return num
-
-#     def values(self, id):
-#         '''Returns the values of a given module of the specified index'''
-
-#         if self.start == None:
-#             return "System Empty"
-        
-#         # Check the size of the system to make sure id not out of range
-#         num = 0 # The number of modules
-#         cur = self.start
-#         while cur:
-#             while cur.next != None:
-#                 num += 1
-#                 cur = cur.next
-        
-#         if id > num:
-#             return "Invalid Index"
-        
-#         # Find the module at the specified index
-#         cur = self.start
-#         for i in range(id - 1):
-#             cur = cur.next
-
-#         return cur.coords, cur.temperature, cur.humidity, cur.pressure, cur.gas, cur.light
-    
-#     def add_module(self, new_module):
-#         '''Adds a new module'''
-
-#         # Check the size of the system 
-#         num = 0 # The number of modules
-#         cur = self.start
-#         while cur:
-#             while cur.next != None:
-#                 num += 1
-#                 cur = cur.next
-        
-#         # new_module = module((num + 1), temperature, humidity, pressure, gas, light, latitude, longitude)
-#         if self.start == None:
-#             self.start = new_module
-        
-#         # Create a new module to add to the system
-#         cur = self.start
-#         for i in range(num - 1):
-#             cur = cur.next
-#         cur.next = new_module
-    
-#     def update_module(self, id, temperature, humidity, pressure, gas, light):
-#         '''Updates module values for display'''
-
-#         if id == 1:
-#             self.start.temperature = temperature
-#             self.start.humidity = humidity
-#             self.start.pressure = pressure
-#             self.start.gas = gas
-#             self.start.light = light
-
-#         else:
-#             cur = self.start
-#             for i in range(id):
-#                 cur = cur.next
-#             cur.temperature = temperature
-#             cur.humidity = humidity
-#             cur.pressure = pressure
-#             cur.gas = gas
-#             cur.light = light
-
-# def extract_values(string):
-#     '''Exctract data from a json string and create a module out of it'''
-#     set = json.loads(string)
-
-#     id = set["id"]
-#     temperature = set["temperature"]
-#     humidity = set["humidity"]
-#     pressure = set["pressure"]
-#     gas = set["gas"]
-#     light = set["light"]
-#     latitude = set["latitude"]
-#     longitude = set["longitude"]
-
-#     mod = module(id, temperature, humidity, pressure, gas, light, latitude, longitude)
-
-#     return mod
-
-# def create_system(list):
-#     '''Takes in a list of json strings and makes a linked list (system) of modules out of them'''
-#     sys = system()
-#     for string in list:
-#         new_mod = extract_values(string)
-#         sys.add_module(new_mod)
-#     return sys
 
 # ___________________________________________________________________
 # PRESSURE MAPPING
 # =======
 _anim = None
-# >>>>>>> ed27eac8edc5cbe9909b8b308b4b437690ed6e6b
 
 
 def fit_linear_pressure_plane(xs, ys, ps):
@@ -552,19 +416,19 @@ def plot_realtime_pressure_map():
 if __name__ == "__main__":
     
     modules = [module1_data, module2_data, module3_data]
-    sys = module_list(modules)
-    ani = FuncAnimation(plt.gcf(), update(sys), interval = 500)
+    sys = create_module_list(modules)
+    ani = FuncAnimation(plt.gcf(), update_modules(sys), interval = 500)
     plt.tight_layout()
     plt.show(block=False)
 
-    print(id(sys, 2))
+    print(get_data_for_module_id(sys, 2))
 
     root = Tk()
 
     e = Entry(root, width=50)
     e.pack()
 
-    myButton = Button(root, text="Enter ID", command=lambda: Interface(sys))
+    myButton = Button(root, text="Enter ID", command=lambda: interface(sys))
     myButton.pack()
 
     root.mainloop()
