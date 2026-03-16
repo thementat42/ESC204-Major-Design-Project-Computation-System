@@ -94,11 +94,14 @@ def module_list(modules):
         mod_list.append(set)
     return mod_list
 
-def values_list(modlist):
-    temps = [] #list of temperatures to plot
+def values_list(modlist, key):
+    '''Extracts a given value type from each module in a list and outputs a list of those values (e.g. list of temperatures)'''
+    values = [] #list of temperatures to plot
 
     for mod in modlist:
-
+        values.append(mod[key])
+    
+    return values
 
 # ___________________________________________________________________
 # LINKED LIST REPRESENTATION
