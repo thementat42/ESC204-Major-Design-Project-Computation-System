@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
 import numpy as np
 import pandas as pd
 import json
@@ -103,6 +104,11 @@ def values_list(modlist, key):
     
     return values
 
+def update(i):
+    '''Continuously updates values'''
+    temps = values_list()
+
+
 # ___________________________________________________________________
 # LINKED LIST REPRESENTATION
 # Define a module
@@ -182,7 +188,7 @@ def values_list(modlist, key):
 #             cur = cur.next
 #         cur.next = new_module
     
-#     def update(self, id, temperature, humidity, pressure, gas, light):
+#     def update_module(self, id, temperature, humidity, pressure, gas, light):
 #         '''Updates module values for display'''
 
 #         if id == 1:
@@ -201,9 +207,6 @@ def values_list(modlist, key):
 #             cur.pressure = pressure
 #             cur.gas = gas
 #             cur.light = light
-
-# # ___________________________________________________________________ 
-# # FUCNTIONS FOR LINKED LIST REPRESENTATION
 
 # def extract_values(string):
 #     '''Exctract data from a json string and create a module out of it'''
