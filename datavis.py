@@ -2,7 +2,7 @@ from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
-from tkinter import *
+import tkinter
 import json
 import threading
 import paho.mqtt.client as mqtt
@@ -213,7 +213,7 @@ def get_data_for_module_id(modlist, id):
 def interface():
     num = e.get()
     output = get_data_for_module_id(get_current_modules(), num)
-    myLabel = Label(root, text=output)
+    myLabel = tkinter.Label(root, text=output)
     myLabel.pack()
 
 # _anim = None
@@ -335,7 +335,7 @@ def plot_realtime_pressure_map():
 
         for sid in sensor_ids:
             x, y = positions[sid]
-            ax.text(x + 0.05, y + 0.05, sid, fontsize=10, zorder=4)
+            ax.text(x + 0.05, y + 0.05, str(sid), fontsize=10, zorder=4)
             ax.text(
                 x + 0.05,
                 y - 0.12,
@@ -441,11 +441,11 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show(block=False)
 
-    root = Tk()
-    e = Entry(root, width=50)
+    root = tkinter.Tk()
+    e = tkinter.Entry(root, width=50)
     e.pack()
 
-    myButton = Button(root, text="Enter ID", command=interface)
+    myButton = tkinter.Button(root, text="Enter ID", command=interface)
     myButton.pack()
 
     root.mainloop()
