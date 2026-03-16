@@ -34,8 +34,6 @@ If your broker is not running on this computer, change BROKER_HOST below.
 import json
 import threading
 from typing import Dict
-
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import paho.mqtt.client as mqtt
@@ -176,7 +174,7 @@ def id(modlist, i):
 
     for mod in modlist:
         if mod["id"] == i:
-            return f"{mod["temperature"]} \n {mod["humidity"]} \n {mod["pressure"]} \n {mod["gas"]} \n {mod["light"]} \n {mod["longitude"]} \n {mod["latitude"]}"
+            return f"Temperature: {mod["temperature"]} \n Humidity: {mod["humidity"]} \n Pressure: {mod["pressure"]} \n Air Quality: {mod["gas"]} \n Brightness: {mod["light"]} \n Coordinates: {(mod["longitude"], mod["latitude"])}"
         return "Invalid ID"
         
 # User Interface
