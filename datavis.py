@@ -1,12 +1,61 @@
+# <<<<<<< HEAD
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+# import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 import numpy as np
 import pandas as pd
-import json
+# =======
+"""
+Pressure / Gas Visualization (MQTT Version)
 
-# ___________________________________________________________________
-# TEST JSONS
+How this program works:
+1. Sensor-side modules publish JSON messages over MQTT.
+2. This visualization subscribes to MQTT topics:
+       station/+/data
+3. Each message is expected to look like:
+       {"id": "m01", "temperature": 23.1, "humidity": 40.2, "pressure": 1012.6, "gas": 123456}
+4. The latest record from each sensor is stored and displayed.
+5. Node color represents pressure.
+6. The center/background is estimated from a linear pressure field fit.
+7. Hover over a node to see pressure, temperature, humidity, and gas.
+8. The plot refreshes automatically every second.
+
+Requirements:
+    pip install matplotlib numpy paho-mqtt
+
+Run:
+    python datavis.py
+
+If your broker is not running on this computer, change BROKER_HOST below.
+"""
+# >>>>>>> ed27eac8edc5cbe9909b8b308b4b437690ed6e6b
+import json
+import threading
+from typing import Dict
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import paho.mqtt.client as mqtt
+
+# MQTT broker settings
+BROKER_HOST = "127.0.0.1"
+BROKER_PORT = 1883
+MQTT_TOPIC = "station/+/data"
+
+# Edit these positions if your physical sensor layout is different.
+SENSOR_POSITIONS = {
+    "m01": (0.0, 0.0),
+    "m02": (2.0, 0.0),
+    "m03": (2.0, 2.0),
+    "m04": (0.0, 2.0),
+}
+
+# Shared sensor data storage
+latest_records: Dict[str, dict] = {}
+records_lock = threading.Lock()
+
+# <<<<<<< HEAD
 
 module1_data = """
 {
@@ -29,20 +78,21 @@ module1_data = """
 }
 
 """
+
 module2_data = """
 {
 
 "id": 2,
 
-"temperature": 30,
+"temperature": 80,
 
-"humidity": 45,
+"humidity": 53,
 
-"pressure": 80,
+"pressure": 100,
 
-"gas": 90,
+"gas": 75,
 
-"light": 0.1100,
+"light": 0.1133,
 
 "latitude": 20.44,
 
@@ -73,8 +123,6 @@ module2_data = """
 
 # """
 
-modules = [module1_data, module2_data]
-
 # ___________________________________________________________________
 # Tasks:
     # Make module and system classes - DONE
@@ -104,11 +152,23 @@ def values_list(modlist, key):
     
     return values
 
-def update(i):
+def update(modlist):
     '''Continuously updates values'''
-    temps = values_list()
+    t = "temperature"
+    x = "longitude"
+    y = "latitude"
+    temps = values_list(modlist, t)
+    # temps = [np.random.randn(2)]
+    long = values_list(modlist, x)
+    lat = values_list(modlist, y)
+    
+    plt.cla()
 
-
+    plt.scatter(long, lat, c=temps, alpha=0.6, cmap='coolwarm')
+    plt.colorbar(label="Temperature")
+    plt.xlabel('Longitude')
+    plt.ylabel('Y values')
+    
 # ___________________________________________________________________
 # LINKED LIST REPRESENTATION
 # Define a module
@@ -234,44 +294,260 @@ def update(i):
 #     return sys
 
 # ___________________________________________________________________
+# PRESSURE MAPPING
+# =======
+_anim = None
+# >>>>>>> ed27eac8edc5cbe9909b8b308b4b437690ed6e6b
+
+
+def fit_linear_pressure_plane(xs, ys, ps):
+    a_matrix = np.column_stack([xs, ys, np.ones(len(xs))])
+    coeffs, _, _, _ = np.linalg.lstsq(a_matrix, ps, rcond=None)
+    a, b, c = coeffs
+    return a, b, c
+
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected to MQTT broker.")
+        client.subscribe(MQTT_TOPIC)
+        print(f"Subscribed to topic: {MQTT_TOPIC}")
+    else:
+        print(f"Failed to connect to MQTT broker. Return code: {rc}")
+
+
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode("utf-8"))
+        sensor_id = payload.get("id")
+        if sensor_id:
+            with records_lock:
+                latest_records[sensor_id] = payload
+    except Exception as e:
+        print("Failed to parse MQTT message:", e)
+
+
+def start_mqtt_listener():
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.connect(BROKER_HOST, BROKER_PORT, 60)
+    client.loop_start()
+    return client
+
+
+def plot_realtime_pressure_map():
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    state = {
+        "scatter": None,
+        "annot": None,
+        "sensor_ids": [],
+        "records": {},
+        "positions": {},
+        "fixed_xlim": None,
+        "fixed_ylim": None,
+    }
+
+    def make_annotation():
+        annot = ax.annotate(
+            "",
+            xy=(0, 0),
+            xytext=(16, 16),
+            textcoords="offset points",
+            bbox=dict(
+                boxstyle="round,pad=0.6",
+                fc="white",
+                ec="0.4",
+                alpha=0.98,
+            ),
+            fontsize=10,
+        )
+        annot.set_visible(False)
+        return annot
+
+    def draw_waiting_screen(message="Waiting for MQTT sensor data..."):
+        ax.clear()
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        ax.text(
+            0.5,
+            0.5,
+            message,
+            ha="center",
+            va="center",
+            fontsize=12,
+            transform=ax.transAxes,
+            color="0.35",
+        )
+
+        state["scatter"] = None
+        state["annot"] = None
+        state["sensor_ids"] = []
+        state["records"] = {}
+        state["positions"] = {}
+        state["fixed_xlim"] = None
+        state["fixed_ylim"] = None
+
+    def draw_frame(records):
+        sensor_ids = [sid for sid in SENSOR_POSITIONS if sid in records]
+
+        if not sensor_ids:
+            draw_waiting_screen("No valid sensor records received yet.")
+            return
+
+        positions = {sid: SENSOR_POSITIONS[sid] for sid in sensor_ids}
+        pressures = np.array([records[sid]["pressure"] for sid in sensor_ids], dtype=float)
+
+        node_xs = np.array([positions[sid][0] for sid in sensor_ids], dtype=float)
+        node_ys = np.array([positions[sid][1] for sid in sensor_ids], dtype=float)
+
+        ax.clear()
+
+        if state["fixed_xlim"] is None or state["fixed_ylim"] is None:
+            fixed_margin = 0.8
+            state["fixed_xlim"] = (
+                float(node_xs.min()) - fixed_margin,
+                float(node_xs.max()) + fixed_margin,
+            )
+            state["fixed_ylim"] = (
+                float(node_ys.min()) - fixed_margin,
+                float(node_ys.max()) + fixed_margin,
+            )
+
+        x_min, x_max = state["fixed_xlim"]
+        y_min, y_max = state["fixed_ylim"]
+
+        if len(sensor_ids) >= 3:
+            a, b, c = fit_linear_pressure_plane(node_xs, node_ys, pressures)
+            grid_x = np.linspace(x_min, x_max, 120)
+            grid_y = np.linspace(y_min, y_max, 120)
+            xx, yy = np.meshgrid(grid_x, grid_y)
+            zz = a * xx + b * yy + c
+
+            ax.contourf(xx, yy, zz, levels=20, cmap="coolwarm", alpha=0.35)
+            ax.contour(xx, yy, zz, levels=8, colors="gray", linewidths=0.7, alpha=0.5)
+
+        scatter = ax.scatter(
+            node_xs,
+            node_ys,
+            s=180,
+            c=pressures,
+            cmap="coolwarm",
+            edgecolors="black",
+            linewidths=1.0,
+            zorder=3,
+        )
+
+        for sid in sensor_ids:
+            x, y = positions[sid]
+            ax.text(x + 0.05, y + 0.05, sid, fontsize=10, zorder=4)
+            ax.text(
+                x + 0.05,
+                y - 0.12,
+                f"{records[sid]['pressure']:.2f} hPa",
+                fontsize=8,
+                color="0.25",
+                zorder=4,
+            )
+
+        ax.set_title("Pressure Map (Linear Interpolation Assumption)", fontsize=12)
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+
+        annot = make_annotation()
+
+        state["scatter"] = scatter
+        state["annot"] = annot
+        state["sensor_ids"] = sensor_ids
+        state["records"] = records
+        state["positions"] = positions
+
+    def update_annotation(ind):
+        index = ind["ind"][0]
+        sensor_id = state["sensor_ids"][index]
+        record = state["records"][sensor_id]
+        x, y = state["positions"][sensor_id]
+
+        annot = state["annot"]
+        annot.xy = (x, y)
+        annot.set_text(
+            f"{sensor_id}\n"
+            f"Pressure: {record['pressure']:.2f} hPa\n"
+            f"Temperature: {record['temperature']:.2f} °C\n"
+            f"Humidity: {record['humidity']:.2f} %\n"
+            f"Gas: {record['gas']}"
+        )
+
+    def on_hover(event):
+        scatter = state["scatter"]
+        annot = state["annot"]
+
+        if scatter is None or annot is None:
+            return
+
+        if event.inaxes == ax:
+            contains, ind = scatter.contains(event)
+            if contains:
+                update_annotation(ind)
+                annot.set_visible(True)
+                fig.canvas.draw_idle()
+            else:
+                if annot.get_visible():
+                    annot.set_visible(False)
+                    fig.canvas.draw_idle()
+
+    def refresh(_):
+        try:
+            with records_lock:
+                records_copy = dict(latest_records)
+
+            if not records_copy:
+                draw_waiting_screen("Waiting for MQTT sensor data...")
+                return
+
+            draw_frame(records_copy)
+
+        except Exception as e:
+            draw_waiting_screen(f"Update failed:\n{e}")
+
+    fig.canvas.mpl_connect("motion_notify_event", on_hover)
+
+    refresh(0)
+
+    global _anim
+    _anim = FuncAnimation(fig, refresh, interval=1000, cache_frame_data=False)
+
+    plt.tight_layout()
+    plt.show(block=True)
+
+# ___________________________________________________________________
 # RUN
 
-# if __name__ == '__main__':
+if __name__ == "__main__":
+    
+    modules = [module1_data, module2_data]
+    sys = module_list(modules)
+    ani = FuncAnimation(plt.gcf(), update(sys), interval = 500)
+    plt.tight_layout()
+    plt.show()
 
-
-
-# ___________________________________________________________________
-# PRACTICE
-
-# def init():
-#     line.set_data([], [])
-#     return line,
-
-# # Temporary Position Proxy
-# x = np.random.randn(4)
-# y = np.random.randn(4)
-
-# Temporary temperature proxy
-
-# t = np.random.randn(4)
-
-# Map
-# plt.rcParams['axes.facecolor'] = 'black'
-#'YlOrRd' for yellow to red
-# fig, axes = plt.subplots()
-# axes.scatter(x, y, c=t, marker='s', s=40, alpha=0.6, cmap = 'coolwarm')
-# vmin_val = 0
-# vmax_val = 1
-# im = axes.imshow(t, vmin=vmin_val, vmax=vmax_val)
-# axes.set_xlabel('Longitude')
-# axes.set_ylabel('Latitude')
-# fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.7, label='Your Label Here')
-# plt.show()
-
-# plt.figure(figsize = (10, 6))
-# plt.scatter(x, y, c=t, marker='s', s=40, alpha=0.6, cmap = 'coolwarm')
-# plt.colorbar(label='Local Temperature')
-# plt.xlabel('Longitude')
-# plt.ylabel("Latitude")
-# plt.show()
-# ___________________________________________________________________
+    mqtt_client = start_mqtt_listener()
+    try:
+        plot_realtime_pressure_map()
+    finally:
+        mqtt_client.loop_stop()
+        mqtt_client.disconnect()
+    

@@ -1,9 +1,9 @@
 import board, busio, time
 
-sda_pin = board.GP14
-scl_pin = board.GP15
+sda_pin = board.GP0
+scl_pin = board.GP1
 
-i2c = busio.I2C(sda_pin, scl_pin)
+i2c = busio.I2C(scl_pin, sda_pin)
 
 while not i2c.try_lock():
     pass
@@ -11,3 +11,4 @@ while not i2c.try_lock():
 print("I2C addresses found:", [hex(device) for device in i2c.scan()])
 
 i2c.unlock()
+
