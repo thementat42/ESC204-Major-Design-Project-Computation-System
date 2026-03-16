@@ -173,13 +173,8 @@ def id(modlist, i):
     '''Returns data of module i'''
 
     for mod in modlist:
-<<<<<<< HEAD
-        if mod["id"] == i:
-            return f"Temperature: {mod["temperature"]} \n Humidity: {mod["humidity"]} \n Pressure: {mod["pressure"]} \n Air Quality: {mod["gas"]} \n Brightness: {mod["light"]} \n Coordinates: {(mod["longitude"], mod["latitude"])}"
-=======
         if mod["id"] == int(i):
             return f"{mod["temperature"]} \n {mod["humidity"]} \n {mod["pressure"]} \n {mod["gas"]} \n {mod["light"]} \n {mod["longitude"]} \n {mod["latitude"]}"
->>>>>>> 778a33c07328312bd0794ba03e0b5fb35ba74a8f
         return "Invalid ID"
         
 # User Interface
