@@ -174,8 +174,8 @@ def id(modlist, i):
 
     for mod in modlist:
         if mod["id"] == int(i):
-            return f"{mod["temperature"]} \n {mod["humidity"]} \n {mod["pressure"]} \n {mod["gas"]} \n {mod["light"]} \n {mod["longitude"]} \n {mod["latitude"]}"
-        return "Invalid ID"
+            return f"Module {mod["id"]} \n Temperature: {mod["temperature"]} \n Humidity: {mod["humidity"]} \n Pressure: {mod["pressure"]} \n Air Quality: {mod["gas"]} \n Light: {mod["light"]} \n Coordinates: {(mod["longitude"], mod["latitude"])}"
+    return "Invalid ID"
         
 # User Interface
 def Interface(modlist):
@@ -557,9 +557,9 @@ if __name__ == "__main__":
     sys = module_list(modules)
     ani = FuncAnimation(plt.gcf(), update(sys), interval = 500)
     plt.tight_layout()
-    plt.show()
+    plt.show(block=False)
 
-    print(id(sys, 1))
+    print(id(sys, 2))
 
     root = Tk()
 
