@@ -221,7 +221,7 @@ def interface():
 
 def fit_linear_pressure_plane(xs, ys, ps):
     a_matrix = np.column_stack([xs, ys, np.ones(len(xs))])
-    coeffs, _, _, _ = np.linalg.lstsq(a_matrix, ps, rcond=None)
+    coeffs, *_ = np.linalg.lstsq(a_matrix, ps, rcond=None)
     a, b, c = coeffs
     return a, b, c
 
@@ -422,7 +422,6 @@ def plot_realtime_pressure_map():
     plt.tight_layout()
     plt.show(block=True)
 
-# ___________________________________________________________________
 # RUN
 
 if __name__ == "__main__":
