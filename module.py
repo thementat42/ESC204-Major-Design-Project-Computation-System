@@ -32,8 +32,11 @@ mqtt_client.connect()
 print("Connected using MQTT")
 
 # Create i2c protocol for the pico to be able to speak to the bme680
-i2c = board.I2C()
-bme = adafruit_bme680.Adafruit_BME680_I2C(i2c)
+sda_pin = board.GP0  # can be any pin marked SDA
+scl_pin = board.GP1  # can be any pin marked SCL
+
+i2c = busio.I2C(scl_pin, sda_pin)
+bme = adafruit_bme680.Adafruit_BME680_I2C(i2c, address = 0x76)
 
 # Allow pico to communicate with photoresistor
 photoresistor_pin = board.GP26_A0
@@ -44,8 +47,8 @@ def adc_to_voltage(adc_value):
     return ADC_REF * (float(adc_value)/float(ADC_HIGH))
 
 # Allow pico to communicate with GPS
-tx_pin = board.GP0  # can be any pin marked TX (see pin map diagram)
-rx_pin = board.GP1  # can be any pin marked RX (see pin map diagram)
+tx_pin = board.GP16  # can be any pin marked TX (see pin map diagram)
+rx_pin = board.GP17  # can be any pin marked RX (see pin map diagram)
 uart = busio.UART(tx_pin, rx_pin, baudrate=9600, timeout=10)
 
 gps = adafruit_gps.GPS(uart, debug = False)
@@ -56,13 +59,13 @@ gps.send_command(b'PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
 gps.send_command(b"PMTK220,1000")  # 1Hz update rate
 
 #* Other options for info
-#? Turn on the basic GGA and RMC info (what you typically want)
+#? Turn on the basic GGA and RMC info
 # gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
 #? Turn on the basic GGA and RMC info + VTG for speed in km/h
 # gps.send_command(b"PMTK314,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
 #? Turn off everything:
 # gps.send_command(b'PMTK314,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
-#? Turn on everything (not all of it is parsed!)
+#? Turn on everything
 # gps.send_command(b'PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0')
 
 def get_gps_data(gps: adafruit_gps.GPS):
@@ -85,7 +88,8 @@ while True:
         VOC_PERCENTAGE: bme.gas, 
         LIGHT: adc_to_voltage(photoresistor.value), 
         LATITUDE: latitude,
-        LONGITUDE: longitude})
+        LONGITUDE: longitude
+        })
     
     # Send json string to laptop under station/m#/data
     mqtt_client.publish("station/" + MODULE_ID + '/data', string)
