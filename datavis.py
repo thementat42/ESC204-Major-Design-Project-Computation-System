@@ -34,8 +34,6 @@ If your broker is not running on this computer, change BROKER_HOST below.
 import json
 import threading
 from typing import Dict
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import paho.mqtt.client as mqtt
 
 # MQTT broker settings
