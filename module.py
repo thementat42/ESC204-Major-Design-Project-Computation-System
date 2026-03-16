@@ -85,7 +85,7 @@ while True:
         TEMPERATURE: bme.temperature, 
         HUMIDITY: bme.relative_humidity, 
         PRESSURE: bme.pressure, 
-        VOC_PERCENTAGE: bme.gas, 
+        FAS: bme.gas, 
         LIGHT: adc_to_voltage(photoresistor.value), 
         LATITUDE: latitude,
         LONGITUDE: longitude
