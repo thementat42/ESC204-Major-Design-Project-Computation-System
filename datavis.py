@@ -157,7 +157,7 @@ def get_values_list(modlist, metric):
     """Get a given metric from all modules"""
     return[module[metric] for module in modlist]
 
-def init_module_plot(modlist):
+def initialize_module_plot(modlist):
     temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
     long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     
     modules = [module1_data, module2_data, module3_data]
     sys = create_module_list(modules)
-    fig, ax, scatter, cbar = init_module_plot(sys)
+    fig, ax, scatter, cbar = initialize_module_plot(sys)
     ani = FuncAnimation(fig, update_modules, interval = 500, fargs = (sys,scatter,cbar), cache_frame_data=False)
     plt.tight_layout()
     plt.show(block=False)
