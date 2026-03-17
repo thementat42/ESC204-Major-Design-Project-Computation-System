@@ -122,6 +122,9 @@ module3_data = """
 
 """
 
+# ___________________________________________________________________
+# TEMPERATURE MAPPING AND USER INTERFACE
+
 def create_module_list(modules):
     '''Creates a list of modules in the form of dictionaries'''
     mod_list = []
