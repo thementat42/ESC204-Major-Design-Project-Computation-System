@@ -17,7 +17,7 @@ LAPTOP_IP = "192.168.2.45" # Also change this depending on where and what we tes
 
 ADC_HIGH = 65535
 BME_GAS_MIN = 10167
-BME_GAS_THRESHOLD = 51397  # High resistance = fresh air
+BME_GAS_THRESHOLD = 63930.51612903226  # High resistance = fresh air
 
 from data_keys import *
 
