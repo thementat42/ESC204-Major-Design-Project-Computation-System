@@ -30,6 +30,13 @@ Run:
 
 If your broker is not running on this computer, change BROKER_HOST below.
 """
+# >>>>>>> ed27eac8edc5cbe9909b8b308b4b437690ed6e6b
+import json
+import threading
+from typing import Dict
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import paho.mqtt.client as mqtt
 
 # MQTT broker settings
 BROKER_HOST = "127.0.0.1"
