@@ -1,11 +1,12 @@
-# <<<<<<< HEAD
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
-from tkinter import *
+import tkinter as tk
 import json
 import threading
 import paho.mqtt.client as mqtt
+from data_keys import *
 
 """
 Pressure / Gas Visualization (MQTT Version)
@@ -15,7 +16,7 @@ How this program works:
 2. This visualization subscribes to MQTT topics:
        station/+/data
 3. Each message is expected to look like:
-       {"id": "m01", "temperature": 23.1, "humidity": 40.2, "pressure": 1012.6, "gas": 123456}
+       {"id": 1, "temperature": 23.1, "humidity": 40.2, "pressure": 1012.6, "gas": 123456}
 4. The latest record from each sensor is stored and displayed.
 5. Node color represents pressure.
 6. The center/background is estimated from a linear pressure field fit.
@@ -45,143 +46,88 @@ MQTT_TOPIC = "station/+/data"
 
 # Edit these positions if your physical sensor layout is different.
 SENSOR_POSITIONS = {
-    "m01": (0.0, 0.0),
-    "m02": (2.0, 0.0),
-    "m03": (2.0, 2.0),
-    "m04": (0.0, 2.0),
+    1: (0.0, 0.0),
+    2: (2.0, 0.0),
+    3: (2.0, 2.0),
+    4: (0.0, 2.0),
 }
 
 # Shared sensor data storage
-latest_records: dict[str, dict] = {}
+latest_records: dict[int, dict] = {}
 records_lock = threading.Lock()
 
 
-module1_data = """
-{
+module1_data = f"""
+{{
 
-"id": 1,
+"{ID}": 1,
 
-"temperature": 26,
+"{TEMPERATURE}": 26,
 
-"humidity": 53,
+"{HUMIDITY}": 53,
 
-"pressure": 100,
+"{PRESSURE}": 100,
 
-"gas": 75,
+"{GAS}": 75,
 
-"light": 0.1133,
+"{LIGHT}": 0.1133,
 
-"latitude": 31.44,
+"{LATITUDE}": 31.44,
 
-"longitude": -20.35
-}
-
-"""
-
-module2_data = """
-{
-
-"id": 2,
-
-"temperature": 80,
-
-"humidity": 53,
-
-"pressure": 100,
-
-"gas": 75,
-
-"light": 0.1133,
-
-"latitude": 20.44,
-
-"longitude": -30.35
-}
+"{LONGITUDE}": -20.35
+}}
 
 """
 
-module3_data = """
-{
 
-"id": 3,
+module2_data = f"""
+{{
 
-"temperature": 50,
+"{ID}": 2,
 
-"humidity": 15,
+"{TEMPERATURE}": 80,
 
-"pressure": 120,
+"{HUMIDITY}": 53,
 
-"gas": 100,
+"{PRESSURE}": 100,
 
-"light": 0.5000,
+"{GAS}": 75,
 
-"latitude": 51.44,
+"{LIGHT}": 0.1133,
 
-"longitude": -2.35
-}
+"{LATITUDE}": 20.44,
+
+"{LONGITUDE}": -30.35
+}}
 
 """
 
-def create_module_list(modules):
-    '''Creates a list of modules in the form of dictionaries'''
-    mod_list = []
-    for mod in modules:
-        set = json.loads(mod)
-        mod_list.append(set)
-    return mod_list
+module3_data = f"""
+{{
 
-def get_values_list(modlist, key):
-    '''Extracts a given value type from each module in a list and outputs a list of those values (e.g. list of temperatures)'''
-    values = [] #list of temperatures to plot
+"{ID}": 3,
 
-    for mod in modlist:
-        values.append(mod[key])
-    
-    return values
+"{TEMPERATURE}": 50,
 
-def update_modules(modlist):
-    '''Continuously updates values (animation function for heatmap)'''
-    t = "temperature"
-    x = "longitude"
-    y = "latitude"
-    temps = get_values_list(modlist, t)
-    # temps = [np.random.randn(2)]
-    long = get_values_list(modlist, x)
-    lat = get_values_list(modlist, y)
-    
-    plt.cla()
+"{HUMIDITY}": 15,
 
-    plt.scatter(long, lat, c=temps, marker='s', alpha=0.6, cmap='coolwarm')
-    plt.colorbar(label="Temperature")
-    plt.xlabel('Longitude')
-    plt.ylabel('Latitude')
+"{PRESSURE}": 120,
 
-def get_data_for_module_id(modlist, id):
-    '''Returns data of module i'''
+"{GAS}": 100,
 
-    for mod in modlist:
-        if mod["id"] == int(id):
-            return f"Module {mod["id"]} \n Temperature: {mod["temperature"]} \n Humidity: {mod["humidity"]} \n Pressure: {mod["pressure"]} \n Air Quality: {mod["gas"]} \n Light: {mod["light"]} \n Coordinates: {(mod["longitude"], mod["latitude"])}"
-    return "Invalid ID"
-        
-# User Interface
-def interface(modlist):
-    num = e.get()
-    output = get_data_for_module_id(modlist, num)
-    myLabel = Label(root, text=output)
-    myLabel.pack()
+"{LIGHT}": 0.5000,
 
-# ___________________________________________________________________
-# PRESSURE MAPPING
-# =======
-_anim = None
+"{LATITUDE}": 51.44,
 
+"{LONGITUDE}": -2.35
+}}
 
-def fit_linear_pressure_plane(xs, ys, ps):
-    a_matrix = np.column_stack([xs, ys, np.ones(len(xs))])
-    coeffs, _, _, _ = np.linalg.lstsq(a_matrix, ps, rcond=None)
-    a, b, c = coeffs
-    return a, b, c
+"""
+
+# MQTT Functions
+
+USE_MQTT = False
+TEST_STRINGS = [module1_data, module2_data, module3_data]
 
 
 def on_connect(client, userdata, flags, rc):
@@ -203,6 +149,14 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print("Failed to parse MQTT message:", e)
 
+def get_current_modules():
+    if USE_MQTT:
+        with records_lock:
+            live = list(latest_records.values())
+            if live:
+                return live
+    return create_module_list(TEST_STRINGS)
+
 
 def start_mqtt_listener():
     client = mqtt.Client()
@@ -212,6 +166,71 @@ def start_mqtt_listener():
     client.loop_start()
     return client
 
+# Data vis helpers
+
+def create_module_list(modules):
+    """Create a list of modules (represented as dictionaries) from json strings"""
+    return [json.loads(module) for module in modules]
+
+def get_values_list(modlist, metric):
+    """Get a given metric from all modules"""
+    return[module[metric] for module in modlist]
+
+def initialize_module_plot(modlist):
+    temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
+    long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
+    lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
+
+    fig, ax = plt.subplots()
+    scatter = ax.scatter(long, lat, c=temps, marker="s", alpha=0.6, cmap="coolwarm")
+    cbar = fig.colorbar(scatter, ax=ax, label="Temperature")
+
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+
+    return fig, ax, scatter, cbar
+
+def update_modules(frame, scatter, cbar):
+    '''Continuously updates values (animation function for heatmap)'''
+
+    modlist = get_current_modules()
+
+    temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
+    long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
+    lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
+
+    scatter.set_offsets(np.column_stack((long, lat)))
+    scatter.set_array(temps)
+
+    if temps.size > 0:
+        scatter.set_clim(float(temps.min()), float(temps.max()))
+        cbar.update_normal(scatter)
+
+    return (scatter,)
+
+def get_data_for_module_id(modlist, id):
+    '''Returns data of module i'''
+
+    for mod in modlist:
+        if mod[ID] == int(id):
+            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n Humidity: {mod[HUMIDITY]} \n Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
+    return "Invalid ID"
+        
+# User Interface
+def interface():
+    num = e.get()
+    output = get_data_for_module_id(get_current_modules(), num)
+    myLabel = tk.Label(root, text=output)
+    myLabel.pack()
+
+# _anim = None
+
+
+def fit_linear_pressure_plane(xs, ys, ps):
+    a_matrix = np.column_stack([xs, ys, np.ones(len(xs))])
+    coeffs, *_ = np.linalg.lstsq(a_matrix, ps, rcond=None)
+    a, b, c = coeffs
+    return a, b, c
 
 def plot_realtime_pressure_map():
     fig, ax = plt.subplots(figsize=(7, 6))
@@ -323,7 +342,7 @@ def plot_realtime_pressure_map():
 
         for sid in sensor_ids:
             x, y = positions[sid]
-            ax.text(x + 0.05, y + 0.05, sid, fontsize=10, zorder=4)
+            ax.text(x + 0.05, y + 0.05, str(sid), fontsize=10, zorder=4)
             ax.text(
                 x + 0.05,
                 y - 0.12,
@@ -404,39 +423,43 @@ def plot_realtime_pressure_map():
 
     refresh(0)
 
-    global _anim
-    _anim = FuncAnimation(fig, refresh, interval=1000, cache_frame_data=False)
+    # global _anim
+    # _anim = FuncAnimation(fig, refresh, interval=1000, cache_frame_data=False)
 
     plt.tight_layout()
     plt.show(block=True)
 
-# ___________________________________________________________________
 # RUN
 
 if __name__ == "__main__":
-    
-    modules = [module1_data, module2_data, module3_data]
-    sys = create_module_list(modules)
-    ani = FuncAnimation(plt.gcf(), update_modules(sys), interval = 500)
+    mqtt_client = start_mqtt_listener() if USE_MQTT else None
+
+    initial = get_current_modules()
+    fig, ax, scatter, cbar = initialize_module_plot(initial)
+    ani = FuncAnimation(
+        fig,
+        update_modules,
+        interval=500,
+        fargs=(scatter, cbar),
+        cache_frame_data=False
+    )
+
     plt.tight_layout()
     plt.show(block=False)
 
-    print(get_data_for_module_id(sys, 2))
-
-    root = Tk()
-
-    e = Entry(root, width=50)
+    root = tk.Tk()
+    e = tk.Entry(root, width=50)
     e.pack()
 
-    myButton = Button(root, text="Enter ID", command=lambda: interface(sys))
+    myButton = tk.Button(root, text="Enter ID", command=interface)
     myButton.pack()
 
     root.mainloop()
 
-    mqtt_client = start_mqtt_listener()
     try:
-        plot_realtime_pressure_map()
+        if USE_MQTT:
+            plot_realtime_pressure_map()
     finally:
-        mqtt_client.loop_stop()
-        mqtt_client.disconnect()
-    
+        if mqtt_client is not None:
+            mqtt_client.loop_stop()
+            mqtt_client.disconnect()

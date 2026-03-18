@@ -8,35 +8,70 @@ import time
 import analogio
 import busio
 import adafruit_gps
+from data_keys import *
+from _mqtt import *
+import ssl
+import adafruit_ntp
+import rtc
+import adafruit_logging as logging
 
-# Connect Pico to wi-fi (mine for now while testing)
-WIFI_SSID = "Reef"
-WIFI_PASSWORD = "Alexandria"
 MODULE_ID = 1 # Make sure to change this for every pico
-LAPTOP_IP = "192.168.2.45" # Also change this depending on where and what we test this on
 
 ADC_HIGH = 65535
 BME_GAS_MIN = 10167
 BME_GAS_THRESHOLD = 63930.51612903226  # High resistance = fresh air
 
-from data_keys import *
+# Connect Pico to wi-fi
+wifi.radio.connect(WIFI_SSID, WIFI_PASSWORD)
+print(f"Successfully Connected to {WIFI_SSID}")
 
-#wifi.radio.connect(WIFI_SSID, WIFI_PASSWORD)
-#print("Successfully Connected. IP:", wifi.radio.ipv4_address)
-
+time.sleep(5)
 
 # Create a socket
-#pool = socketpool.SocketPool(wifi.radio)
+pool = socketpool.SocketPool(wifi.radio)
+
+print("Testing DNS resolution...")
+try:
+    # Test 1: Can we resolve a basic website?
+    google_ip = pool.getaddrinfo("google.com", 80)[0][4][0]
+    print(f"Basic DNS works (Google IP: {google_ip})")
+    
+    # Test 2: Can we resolve HiveMQ broker?
+    hivemq_ip = pool.getaddrinfo(HIVEMQ_HOST, 8883)[0][4][0]
+    print(f"HiveMQ DNS works (HiveMQ IP: {hivemq_ip})")
+except Exception as e:
+    print(f"DNS FAILED! Error: {e}")
+
+ssl_context = ssl.create_default_context()
+
+ntp = adafruit_ntp.NTP(pool, tz_offset=0)
+rtc.RTC().datetime = ntp.datetime
+print("RTC time:", rtc.RTC().datetime)
+
+mqtt_logger = logging.getLogger("mqtt")
+#mqtt_logger.setLevel(logging.DEBUG)
 
 # Create MQTT client with necessary information on standard port
-#mqtt_client = MQTT.MQTT(broker=LAPTOP_IP, port=1883, socket_pool=pool)
+mqtt_client = MQTT.MQTT(
+    broker=HIVEMQ_HOST,
+    port=8883,
+    username = HIVEMQ_USERNAME,
+    password = HIVEMQ_PASSWORD,
+    socket_pool = pool,
+    ssl_context=ssl_context,
+    client_id = str(MODULE_ID),
+    is_ssl=True,
+    keep_alive = 60
+    )
+mqtt_client.logger = mqtt_logger
 
-#mqtt_client.connect()
-#print("Connected using MQTT")
+print("Connecting to HiveMQ Cloud with debug logs ON...")
+mqtt_client.connect()
+print("Connected using MQTT")
 
 # Create i2c protocol for the pico to be able to speak to the bme680
-sda_pin = board.GP0  # can be any pin marked SDA
-scl_pin = board.GP1  # can be any pin marked SCL
+sda_pin = board.GP12  # can be any pin marked SDA
+scl_pin = board.GP13  # can be any pin marked SCL
 
 i2c = busio.I2C(scl_pin, sda_pin)
 bme = adafruit_bme680.Adafruit_BME680_I2C(i2c, address = 0x76)
@@ -84,6 +119,10 @@ gps.send_command(b"PMTK220,1000")  # 1Hz update rate
 
 # Data sending loop
 while True:
+    try:
+        mqtt_client.loop()
+    except Exception as e:
+        print("MQTT Loop Error:", e)
     gps.update()
 
     latitude, longitude = get_gps_data(gps)
@@ -101,7 +140,7 @@ while True:
         })
     
     # Send json string to laptop under station/m#/data
-    # mqtt_client.publish("station/" + MODULE_ID + '/data', string)
+    mqtt_client.publish("station/" + str(MODULE_ID) + '/data', string)
     print("Sent:", string)
     
     # Wait 1 second to send at 1Hz
