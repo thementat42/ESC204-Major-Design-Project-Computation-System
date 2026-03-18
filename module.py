@@ -46,10 +46,10 @@ ssl_context = ssl.create_default_context()
 
 ntp = adafruit_ntp.NTP(pool, tz_offset=0)
 rtc.RTC().datetime = ntp.datetime
-
+print("RTC time:", rtc.RTC().datetime)
 
 mqtt_logger = logging.getLogger("mqtt")
-mqtt_logger.setLevel(logging.DEBUG)
+#mqtt_logger.setLevel(logging.DEBUG)
 
 # Create MQTT client with necessary information on standard port
 mqtt_client = MQTT.MQTT(
@@ -59,7 +59,9 @@ mqtt_client = MQTT.MQTT(
     password = HIVEMQ_PASSWORD,
     socket_pool = pool,
     ssl_context=ssl_context,
-    client_id = str(MODULE_ID)
+    client_id = str(MODULE_ID),
+    is_ssl=True,
+    keep_alive = 60
     )
 mqtt_client.logger = mqtt_logger
 
@@ -68,8 +70,8 @@ mqtt_client.connect()
 print("Connected using MQTT")
 
 # Create i2c protocol for the pico to be able to speak to the bme680
-sda_pin = board.GP0  # can be any pin marked SDA
-scl_pin = board.GP1  # can be any pin marked SCL
+sda_pin = board.GP12  # can be any pin marked SDA
+scl_pin = board.GP13  # can be any pin marked SCL
 
 i2c = busio.I2C(scl_pin, sda_pin)
 bme = adafruit_bme680.Adafruit_BME680_I2C(i2c, address = 0x76)
