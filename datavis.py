@@ -5,7 +5,7 @@ import numpy as np
 import tkinter as tk
 import json
 import threading
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt 
 from data_keys import *
 
 """
@@ -183,7 +183,7 @@ def initialize_module_plot(modlist):
 
     return fig, ax, scatter, cbar
 
-def update_modules(frame, scatter, cbar):
+def update_modules(scatter, cbar):
     '''Continuously updates values (animation function for heatmap)'''
 
     modlist = get_current_modules()
