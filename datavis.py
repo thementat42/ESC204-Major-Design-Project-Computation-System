@@ -46,7 +46,7 @@ SENSOR_POSITIONS = {
 }
 
 # Shared sensor data storage
-latest_records: dict[str, dict] = {}
+latest_records: dict[int, dict] = {}
 records_lock = threading.Lock()
 
 
