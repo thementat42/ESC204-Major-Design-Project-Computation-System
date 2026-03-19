@@ -1,0 +1,29 @@
+# Received
+
+[1] temp=26.2769C pressure=1003.37  gas=-0.112474ohms
+['{"ID": 1, "temperature": 26.2769, "pressure": 1003.37, "gas": -0.112474, "light": 0.318159, "latitude": -3, "longitude": -3}']
+['{"ID": 1, "temperature": 26.2769, "pressure": 1003.37, "gas": -0.112474, "light": 0.318159, "latitude": -3, "longitude": -3}']
+[1] temp=26.295C pressure=1003.37  gas=-0.105797ohms
+['{"ID": 1, "temperature": 26.295, "pressure": 1003.37, "gas": -0.105797, "light": 0.313476, "latitude": -3, "longitude": -3}']
+['{"ID": 1, "temperature": 26.295, "pressure": 1003.37, "gas": -0.105797, "light": 0.313476, "latitude": -3, "longitude": -3}']
+['{"ID": 1, "temperature": 26.295, "pressure": 1003.37, "gas": -0.105797, "light": 0.313476, "latitude": -3, "longitude": -3}']
+[1] temp=26.3124C pressure=1003.36  gas=-0.099454ohms
+['{"ID": 1, "temperature": 26.3124, "pressure": 1003.36, "gas": -0.099454, "light": 0.315817, "latitude": -3, "longitude": -3}']
+['{"ID": 1, "temperature": 26.3124, "pressure": 1003.36, "gas": -0.099454, "light": 0.315817, "latitude": -3, "longitude": -3}']
+[1] temp=26.328C pressure=1003.36  gas=-0.0936694ohms
+['{"ID": 1, "temperature": 26.328, "pressure": 1003.36, "gas": -0.0936694, "light": 0.311395, "latitude": -3, "longitude": -3}']
+['{"ID": 1, "temperature": 26.328, "pressure": 1003.36, "gas": -0.0936694, "light": 0.311395, "latitude": -3, "longitude": -3}']
+[1] temp=26.3431C pressure=1003.36  gas=-0.0875129ohms
+['{"ID": 1, "temperature": 26.3431, "pressure": 1003.36, "gas": -0.0875129, "light": 0.317899, "latitude": -3, "longitude": -3}']
+['{"ID": 1, "temperature": 26.3431, "pressure": 1003.36, "gas": -0.0875129, "light": 0.317899, "latitude": -3, "longitude": -3}']
+[1] temp=26.3587C pressure=1003.37  gas=-0.0821003ohms
+['{"ID": 1, "temperature": 26.3587, "pressure": 1003.37, "gas": -0.0821003, "light": 0.310094, "latitude": -3, "longitude": -3}']
+
+# Sent
+
+Sent: {"ID": 1, "temperature": 26.2769, "pressure": 1003.37, "gas": -0.112474, "humidity": 23.9403, "light": 0.318159, "latitude": -3, "longitude": -3}
+Sent: {"ID": 1, "temperature": 26.295, "pressure": 1003.37, "gas": -0.105797, "humidity": 23.8835, "light": 0.313476, "latitude": -3, "longitude": -3}
+Sent: {"ID": 1, "temperature": 26.3124, "pressure": 1003.36, "gas": -0.099454, "humidity": 23.8266, "light": 0.315817, "latitude": -3, "longitude": -3}
+Sent: {"ID": 1, "temperature": 26.328, "pressure": 1003.36, "gas": -0.0936694, "humidity": 23.9228, "light": 0.311395, "latitude": -3, "longitude": -3}
+Sent: {"ID": 1, "temperature": 26.3431, "pressure": 1003.36, "gas": -0.0875129, "humidity": 24.1566, "light": 0.317899, "latitude": -3, "longitude": -3}
+Sent: {"ID": 1, "temperature": 26.3587, "pressure": 1003.37, "gas": -0.0821003, "humidity": 24.3855, "light": 0.310094, "latitude": -3, "longitude": -3}
