@@ -31,7 +31,7 @@ def on_message(client, userdata, msg):
         modules[module_id] = []
 
     modules[module_id].append(data)
-    print(f"[{module_id}] temp={data[TEMPERATURE]}C pressure={data[PRESSURE]}  gas={data[GAS]}ohms")
+    print(f"[{module_id}] temp={data[TEMPERATURE]}C pressure={data[PRESSURE]}  gas={data[GAS]}%")
 
     # Compute the wind proxy
     pairs = compute_wind_proxy()
@@ -111,8 +111,9 @@ client.username_pw_set(HIVEMQ_USERNAME, HIVEMQ_PASSWORD)
 client.connect(HIVEMQ_HOST, 8883)
 client.loop_start()
 
-while True:
-    output = get_data()
-    print(output)
-    time.sleep(1)
+if __name__ == "__main__":    
+    while True:
+        output = get_data()
+        print(output)
+        time.sleep(1)
 
