@@ -8,7 +8,7 @@ import threading
 import paho.mqtt.client as mqtt
 from data_keys import *
 import time
-from computation import get_data
+import computation
 
 """
 Pressure / Gas Visualization (MQTT Version)
@@ -122,7 +122,7 @@ module3_data = f"""
 
 # MQTT Functions
 
-USE_MQTT = False
+USE_MQTT = True
 TEST_STRINGS = sample
 # TEST_STRINGS = [module1_data, module2_data, module3_data]
 
@@ -146,22 +146,12 @@ def on_message(client, userdata, msg):
         print("Failed to parse MQTT message:", e)
 
 def get_current_modules():
-    if USE_MQTT:
-        return get_data()
-        # with records_lock:
-        #     live = list(latest_records.values())
-        #     if live:
-        #         return live
-    return create_module_list(TEST_STRINGS)
-
-
-def start_mqtt_listener():
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.connect(BROKER_HOST, BROKER_PORT, 60)
-    client.loop_start()
-    return client
+    if not USE_MQTT:
+        return create_module_list(TEST_STRINGS)
+    temp = computation.get_data()
+    for i in range(len(temp)):
+        temp[i] = json.loads(temp[i])
+    return temp
 
 # Data vis helpers
 
@@ -203,13 +193,15 @@ def initialize_module_plot(modlist):
                 end = time.time()
                 timing = end - start
                 times.append(timing)
+
+    rate_of_spread = 0
     
     if len(fire_positions) > 1:
         fire_plots = []
         for index in range(len(fire_positions)):
             fire_plots.append((((fire_positions[0][0] - fire_positions[index][0])*2) + ((fire_positions[0][1] - fire_positions[index][1])*2))*(0.5))
 
-        rate_of_spread, interface = np.polyfit(fire_plots, times, 1)
+        rate_of_spread, _ = np.polyfit(fire_plots, times, 1)
 
     # Create plot
     fig, ax = plt.subplots()
@@ -268,9 +260,11 @@ def interface():
 # RUN
 
 if __name__ == "__main__":
-    mqtt_client = start_mqtt_listener() if USE_MQTT else None
 
-    initial = get_current_modules()
+    initial = []
+    while not initial:
+        initial = get_current_modules()
+    print("EEE", initial)
     fig, ax, scatter, cbar = initialize_module_plot(initial)
     ani = FuncAnimation(
         fig,
