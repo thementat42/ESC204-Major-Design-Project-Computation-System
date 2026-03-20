@@ -8,6 +8,7 @@ import threading
 import paho.mqtt.client as mqtt
 from data_keys import *
 import time
+from computation import get_data
 
 """
 Pressure / Gas Visualization (MQTT Version)
@@ -146,10 +147,11 @@ def on_message(client, userdata, msg):
 
 def get_current_modules():
     if USE_MQTT:
-        with records_lock:
-            live = list(latest_records.values())
-            if live:
-                return live
+        return get_data()
+        # with records_lock:
+        #     live = list(latest_records.values())
+        #     if live:
+        #         return live
     return create_module_list(TEST_STRINGS)
 
 
