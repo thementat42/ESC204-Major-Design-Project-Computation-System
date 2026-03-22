@@ -178,12 +178,25 @@ def initialize_module_plot(modlist):
     scatter = ax.scatter(long, lat, c=temps, marker="s", alpha=0.6, cmap="coolwarm")
     cbar = fig.colorbar(scatter, ax=ax, label="Temperature")
 
+    # create initial arrows
+    xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
+    quiver = ax.quiver(
+        xs, ys, U_plot, V_plot,
+        angles="xy",
+        scale_units="xy",
+        scale=1,
+        color="black",
+        width=0.004,
+        zorder=4
+    )
+
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
 
-    return fig, ax, scatter, cbar
+    return fig, ax, scatter, cbar, quiver
 
-def update_modules(scatter, cbar):
+
+def update_modules(frame, scatter, cbar, quiver):
     '''Continuously updates values (animation function for heatmap)'''
 
     modlist = get_current_modules()
@@ -199,7 +212,15 @@ def update_modules(scatter, cbar):
         scatter.set_clim(float(temps.min()), float(temps.max()))
         cbar.update_normal(scatter)
 
-    return (scatter,)
+    # update arrows
+    xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
+    quiver.set_offsets(np.column_stack((xs, ys)))
+    quiver.set_UVC(U_plot, V_plot)
+
+    return (scatter, quiver)
+
+
+
 
 def get_data_for_module_id(modlist, id):
     '''Returns data of module i'''
@@ -424,16 +445,90 @@ def plot_realtime_pressure_map():
 
 # RUN
 
+
+
+def compute_weighted_wind_vectors(modlist):
+    """
+    For each node, compute one combined wind-direction proxy vector
+    using all pairwise pressure differences.
+
+    Returns:
+        xs, ys, U_plot, V_plot
+    """
+    n = len(modlist)
+
+    xs = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
+    ys = np.array(get_values_list(modlist, LATITUDE), dtype=float)
+    ps = np.array(get_values_list(modlist, PRESSURE), dtype=float)
+
+    U = np.zeros(n, dtype=float)
+    V = np.zeros(n, dtype=float)
+
+    for i in range(n):
+        vx = 0.0
+        vy = 0.0
+        total_weight = 0.0
+
+        for j in range(n):
+            if i == j:
+                continue
+
+            dx = xs[j] - xs[i]
+            dy = ys[j] - ys[i]
+            dist = np.hypot(dx, dy)
+
+            if dist < 1e-9:
+                continue
+
+            # unit vector from node i to node j
+            ux = dx / dist
+            uy = dy / dist
+
+            # pressure difference
+            delta_p = ps[i] - ps[j]
+
+            # weight: bigger pressure difference + closer distance => stronger effect
+            weight = abs(delta_p) / dist
+
+            # if ps[i] > ps[j], contribution points from i toward j
+            # if ps[i] < ps[j], contribution points opposite to (i->j)
+            vx += weight * np.sign(delta_p) * ux
+            vy += weight * np.sign(delta_p) * uy
+            total_weight += weight
+
+        if total_weight > 0:
+            U[i] = vx / total_weight
+            V[i] = vy / total_weight
+        else:
+            U[i] = 0.0
+            V[i] = 0.0
+
+    # normalize for display so arrows are visible and similar in length
+    mags = np.hypot(U, V)
+    U_plot = np.zeros_like(U)
+    V_plot = np.zeros_like(V)
+
+    nonzero = mags > 1e-9
+    if np.any(nonzero):
+        display_len = 1.2   # arrow display length on the graph
+        U_plot[nonzero] = U[nonzero] / mags[nonzero] * display_len
+        V_plot[nonzero] = V[nonzero] / mags[nonzero] * display_len
+
+    return xs, ys, U_plot, V_plot
+
+
+
+
 if __name__ == "__main__":
     mqtt_client = start_mqtt_listener() if USE_MQTT else None
 
     initial = get_current_modules()
-    fig, ax, scatter, cbar = initialize_module_plot(initial)
+    fig, ax, scatter, cbar, quiver = initialize_module_plot(initial)
     ani = FuncAnimation(
         fig,
         update_modules,
         interval=500,
-        fargs=(scatter, cbar),
+        fargs=(scatter, cbar, quiver),
         cache_frame_data=False
     )
 
