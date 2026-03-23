@@ -122,7 +122,7 @@ module3_data = f"""
 
 # MQTT Functions
 
-USE_MQTT = False
+USE_MQTT = False # Switch to False to run test on sample
 TEST_STRINGS = sample
 # TEST_STRINGS = [module1_data, module2_data, module3_data]
 
