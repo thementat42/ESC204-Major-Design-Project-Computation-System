@@ -4,6 +4,7 @@ import ssl
 import json
 import math
 from _mqtt import *
+import time
 
 from data_keys import *
 
@@ -37,7 +38,7 @@ def on_message(client, userdata, msg):
     pairs = compute_wind_proxy()
     if pairs:
         for p in pairs:
-            print(f"  {p['module_a']}-{p['module_b']}: delta={p['delta_p']:.2f}hPa magnitude={p['magnitude']:.2f}")
+            print(f"  {p[MODULE_A]}-{p[MODULE_B]}: delta={p[DELTA_P]:.2f}hPa magnitude={p[MAGNITUDE]:.2f}")
 
 # Function to calculate the wind speed proxy
 def compute_wind_proxy():
@@ -63,7 +64,41 @@ def compute_wind_proxy():
             delta_p = pres_a - pres_b
             magnitude = math.sqrt(abs(delta_p))
 
-            pairs.append({"module_a": id_a, "module_b": id_b, "delta_p": delta_p, "magnitude": magnitude})
+            pairs.append({MODULE_A: id_a, MODULE_B: id_b, DELTA_P: delta_p, MAGNITUDE: magnitude})
+
+    return pairs
+
+def get_data():
+    output = []
+
+    # Output builder loop
+    for module_id in modules:
+        # Make sure its not empty
+        if len(modules[module_id]) > 0:
+            # Get most recent reading
+            latest = modules[module_id][-1]
+            # Build the dictionary with what datavis needs
+            filtered = {
+                ID: latest[ID],
+                TEMPERATURE: latest[TEMPERATURE],
+                PRESSURE: latest[PRESSURE],
+                GAS: latest[GAS],
+                LIGHT: latest[LIGHT],
+                LATITUDE: latest[LATITUDE],
+                LONGITUDE: latest[LONGITUDE]
+
+            }
+            # Convert dict to json string
+            output.append(json.dumps(filtered))
+
+    # Run wind proxy calculation
+    pairs = compute_wind_proxy()
+
+    # Append wind proxy calculations
+    if pairs:
+        output.append(json.dumps({WIND_PROXY: pairs}))
+
+    return output
 
 # Create MQTT client and wire to functions
 client = mqtt.Client(CallbackAPIVersion.VERSION2)
@@ -75,5 +110,11 @@ client.username_pw_set(HIVEMQ_USERNAME, HIVEMQ_PASSWORD)
 
 # Opens the connection and waits for messages indefinitely
 client.connect(HIVEMQ_HOST, 8883)
-client.loop_forever()
+client.loop_start()
+
+if __name__ == "__main__":    
+    while True:
+        output = get_data()
+        print(output)
+        time.sleep(1)
 

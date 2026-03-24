@@ -1,0 +1,20 @@
+[
+      '{"ID": 1, "temperature": 22.53,
+  "pressure": 1013.25, "gas": 0.78, "light":
+  0.65, "latitude": 43.6592, "longitude":
+  -79.3972}',
+      '{"ID": 2, "temperature": 19.80,
+  "pressure": 1012.85, "gas": 0.52, "light":
+  0.71, "latitude": 43.6610, "longitude":
+  -79.3955}',
+      '{"ID": 3, "temperature": 21.10,
+  "pressure": 1014.65, "gas": 0.91, "light":
+  0.43, "latitude": 43.6600, "longitude":
+  -79.3980}',
+      '{"wind_proxy": [{"module_a": 1,
+  "module_b": 2, "delta_p": 0.40, "magnitude":
+  0.63}, {"module_a": 1, "module_b": 3,
+  "delta_p": -1.40, "magnitude": 1.18},
+  {"module_a": 2, "module_b": 3, "delta_p":
+  -1.80, "magnitude": 1.34}]}'
+  ]

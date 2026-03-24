@@ -6,3 +6,9 @@ fake_module.py
 *.env
 *.venv
 _mqtt.py
+# Claude Code
+CLAUDE.md
+
+# Codex local instruction files
+AGENTS.md
+

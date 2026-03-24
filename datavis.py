@@ -5,8 +5,10 @@ import numpy as np
 import tkinter as tk
 import json
 import threading
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt 
 from data_keys import *
+import time
+import computation
 
 """
 Pressure / Gas Visualization (MQTT Version)
@@ -31,13 +33,6 @@ Run:
 
 If your broker is not running on this computer, change BROKER_HOST below.
 """
-# >>>>>>> ed27eac8edc5cbe9909b8b308b4b437690ed6e6b
-import json
-import threading
-from typing import Dict
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-import paho.mqtt.client as mqtt
 
 # MQTT broker settings
 BROKER_HOST = "127.0.0.1"
@@ -56,6 +51,7 @@ SENSOR_POSITIONS = {
 latest_records: dict[int, dict] = {}
 records_lock = threading.Lock()
 
+sample = ['{"ID": 1, "temperature": 80, "pressure": 1013.25, "gas": 0.78, "light": 1, "latitude": 43.6592, "longitude": -79.3972}','{"ID": 2, "temperature": 80, "pressure": 1012.85, "gas": 0.52, "light": 1, "latitude": 43.6610, "longitude": -79.3955}','{"ID": 3, "temperature": 21.10, "pressure": 1014.65, "gas": 0.91, "light": 0.43, "latitude": 43.6600, "longitude": -79.3980}','{"wind_proxy": [{"module_a": 1, "module_b": 2, "delta_p": 0.40, "magnitude": 0.63}, {"module_a": 1, "module_b": 3, "delta_p": -1.40, "magnitude": 1.18}, {"module_a": 2, "module_b": 3, "delta_p": -1.80, "magnitude": 1.34}]}']
 
 module1_data = f"""
 {{
@@ -127,8 +123,8 @@ module3_data = f"""
 # MQTT Functions
 
 USE_MQTT = False
-TEST_STRINGS = [module1_data, module2_data, module3_data]
-
+TEST_STRINGS = sample
+# TEST_STRINGS = [module1_data, module2_data, module3_data]
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -150,51 +146,110 @@ def on_message(client, userdata, msg):
         print("Failed to parse MQTT message:", e)
 
 def get_current_modules():
-    if USE_MQTT:
-        with records_lock:
-            live = list(latest_records.values())
-            if live:
-                return live
-    return create_module_list(TEST_STRINGS)
-
-
-def start_mqtt_listener():
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.connect(BROKER_HOST, BROKER_PORT, 60)
-    client.loop_start()
-    return client
+    if not USE_MQTT:
+        return create_module_list(TEST_STRINGS)
+    temp = computation.get_data()
+    for i in range(len(temp)):
+        temp[i] = json.loads(temp[i])
+    return temp
 
 # Data vis helpers
 
 def create_module_list(modules):
     """Create a list of modules (represented as dictionaries) from json strings"""
-    return [json.loads(module) for module in modules]
+    return [json.loads(module) for module in modules[:-1]]
+
+def get_wind_proxy_data(modules):
+    """Get the data for the pressure gradients between modules, outputted as a list of json strings"""
+    return [json.loads(module) for module in (modules[-1])]
 
 def get_values_list(modlist, metric):
     """Get a given metric from all modules"""
     return[module[metric] for module in modlist]
 
 def initialize_module_plot(modlist):
+
+    start = time.time()
+
+    # Set up heat map
     temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
     long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
 
+    # Mark fires
+    fires_x = []
+    fires_y = []
+    for mod in modlist:
+        if identify_fire(mod):
+            fires_x.append(mod[LONGITUDE])
+            fires_y.append(mod[LATITUDE])
+
+    # Compute rate of spread
+    fire_positions = []
+    times = []
+    for mod in modlist:
+        if identify_fire(mod) and ((mod[LONGITUDE], mod[LATITUDE]) not in fire_positions):
+                fire_positions.append((mod[LONGITUDE], mod[LATITUDE]))
+                end = time.time()
+                timing = end - start
+                times.append(timing)
+
+    rate_of_spread = 0
+    
+    if len(fire_positions) > 1:
+        fire_plots = []
+        for index in range(len(fire_positions)):
+            fire_plots.append((((fire_positions[0][0] - fire_positions[index][0])*2) + ((fire_positions[0][1] - fire_positions[index][1])*2))*(0.5))
+
+        rate_of_spread, _ = np.polyfit(fire_plots, times, 1)
+
+    # Create plot
     fig, ax = plt.subplots()
+    scatter = ax.scatter(fires_x, fires_y, color="red", s=500, marker="o", alpha=0.3)
     scatter = ax.scatter(long, lat, c=temps, marker="s", alpha=0.6, cmap="coolwarm")
+    ax.text(min(long), max(lat), f"Rate of spread: {rate_of_spread} m/s")
     cbar = fig.colorbar(scatter, ax=ax, label="Temperature")
+
+    # create initial arrows
+    xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
+    quiver = ax.quiver(
+        xs, ys, U_plot, V_plot,
+        angles="xy",
+        scale_units="xy",
+        scale=1,
+        color="black",
+        width=0.004,
+        zorder=4
+    )
 
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
 
-    return fig, ax, scatter, cbar
+    return fig, ax, scatter, cbar, quiver
 
-def update_modules(frame, scatter, cbar):
+
+def get_data_for_module_id(modlist, id):
+    '''Returns data of module i'''
+
+    for mod in modlist:
+        if mod[ID] == int(id):
+            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n  Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
+    return "Invalid ID"
+
+def identify_fire(mod):
+    """Returns True if a module meets the threshold criteria to identify a fire"""
+    if (mod[TEMPERATURE] >= 80) and (mod[LIGHT] >= 1):
+        return True
+    return False
+
+
+def update_modules(scatter, cbar):
     '''Continuously updates values (animation function for heatmap)'''
 
+    # Get module list
     modlist = get_current_modules()
 
+    # Set up heat map
     temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
     long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
@@ -206,14 +261,22 @@ def update_modules(frame, scatter, cbar):
         scatter.set_clim(float(temps.min()), float(temps.max()))
         cbar.update_normal(scatter)
 
-    return (scatter,)
+    # update arrows
+    xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
+    quiver.set_offsets(np.column_stack((xs, ys)))
+    quiver.set_UVC(U_plot, V_plot)
+
+    return (scatter, quiver)
+
+
+
 
 def get_data_for_module_id(modlist, id):
     '''Returns data of module i'''
 
     for mod in modlist:
         if mod[ID] == int(id):
-            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n Humidity: {mod[HUMIDITY]} \n Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
+            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
     return "Invalid ID"
         
 # User Interface
@@ -431,16 +494,92 @@ def plot_realtime_pressure_map():
 
 # RUN
 
-if __name__ == "__main__":
-    mqtt_client = start_mqtt_listener() if USE_MQTT else None
 
-    initial = get_current_modules()
-    fig, ax, scatter, cbar = initialize_module_plot(initial)
+
+def compute_weighted_wind_vectors(modlist):
+    """
+    For each node, compute one combined wind-direction proxy vector
+    using all pairwise pressure differences.
+
+    Returns:
+        xs, ys, U_plot, V_plot
+    """
+    n = len(modlist)
+
+    xs = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
+    ys = np.array(get_values_list(modlist, LATITUDE), dtype=float)
+    ps = np.array(get_values_list(modlist, PRESSURE), dtype=float)
+
+    U = np.zeros(n, dtype=float)
+    V = np.zeros(n, dtype=float)
+
+    for i in range(n):
+        vx = 0.0
+        vy = 0.0
+        total_weight = 0.0
+
+        for j in range(n):
+            if i == j:
+                continue
+
+            dx = xs[j] - xs[i]
+            dy = ys[j] - ys[i]
+            dist = np.hypot(dx, dy)
+
+            if dist < 1e-9:
+                continue
+
+            # unit vector from node i to node j
+            ux = dx / dist
+            uy = dy / dist
+
+            # pressure difference
+            delta_p = ps[i] - ps[j]
+
+            # weight: bigger pressure difference + closer distance => stronger effect
+            weight = abs(delta_p) / dist
+
+            # if ps[i] > ps[j], contribution points from i toward j
+            # if ps[i] < ps[j], contribution points opposite to (i->j)
+            vx += weight * np.sign(delta_p) * ux
+            vy += weight * np.sign(delta_p) * uy
+            total_weight += weight
+
+        if total_weight > 0:
+            U[i] = vx / total_weight
+            V[i] = vy / total_weight
+        else:
+            U[i] = 0.0
+            V[i] = 0.0
+
+    # normalize for display so arrows are visible and similar in length
+    mags = np.hypot(U, V)
+    U_plot = np.zeros_like(U)
+    V_plot = np.zeros_like(V)
+
+    nonzero = mags > 1e-9
+    if np.any(nonzero):
+        display_len = 1.2   # arrow display length on the graph
+        U_plot[nonzero] = U[nonzero] / mags[nonzero] * display_len
+        V_plot[nonzero] = V[nonzero] / mags[nonzero] * display_len
+
+    return xs, ys, U_plot, V_plot
+
+
+
+
+if __name__ == "__main__":
+
+    initial = []
+    while not initial:
+        initial = get_current_modules()
+    print("EEE", initial)
+    fig, ax, scatter, cbar, quiver = initialize_module_plot(initial)
     ani = FuncAnimation(
         fig,
         update_modules,
         interval=500,
-        fargs=(scatter, cbar),
+        fargs=(scatter, cbar, quiver),
         cache_frame_data=False
     )
 
@@ -455,11 +594,3 @@ if __name__ == "__main__":
     myButton.pack()
 
     root.mainloop()
-
-    try:
-        if USE_MQTT:
-            plot_realtime_pressure_map()
-    finally:
-        if mqtt_client is not None:
-            mqtt_client.loop_stop()
-            mqtt_client.disconnect()
