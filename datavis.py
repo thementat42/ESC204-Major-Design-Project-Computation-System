@@ -559,7 +559,7 @@ def compute_weighted_wind_vectors(modlist):
 
     nonzero = mags > 1e-9
     if np.any(nonzero):
-        display_len = 1.2   # arrow display length on the graph
+        display_len = 0.25   # arrow display length on the graph
         U_plot[nonzero] = U[nonzero] / mags[nonzero] * display_len
         V_plot[nonzero] = V[nonzero] / mags[nonzero] * display_len
 
