@@ -122,7 +122,7 @@ module3_data = f"""
 
 # MQTT Functions
 
-USE_MQTT = True
+USE_MQTT = False
 TEST_STRINGS = sample
 # TEST_STRINGS = [module1_data, module2_data, module3_data]
 
@@ -276,7 +276,7 @@ def get_data_for_module_id(modlist, id):
 
     for mod in modlist:
         if mod[ID] == int(id):
-            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n Humidity: {mod[HUMIDITY]} \n Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
+            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
     return "Invalid ID"
         
 # User Interface
