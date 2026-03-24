@@ -5,7 +5,7 @@ import numpy as np
 import tkinter as tk
 import json
 import threading
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt 
 from data_keys import *
 import time
 import computation
@@ -210,10 +210,23 @@ def initialize_module_plot(modlist):
     ax.text(min(long), max(lat), f"Rate of spread: {rate_of_spread} m/s")
     cbar = fig.colorbar(scatter, ax=ax, label="Temperature")
 
+    # create initial arrows
+    xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
+    quiver = ax.quiver(
+        xs, ys, U_plot, V_plot,
+        angles="xy",
+        scale_units="xy",
+        scale=1,
+        color="black",
+        width=0.004,
+        zorder=4
+    )
+
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
 
-    return fig, ax, scatter, cbar
+    return fig, ax, scatter, cbar, quiver
+
 
 def get_data_for_module_id(modlist, id):
     '''Returns data of module i'''
@@ -248,7 +261,23 @@ def update_modules(scatter, cbar):
         scatter.set_clim(float(temps.min()), float(temps.max()))
         cbar.update_normal(scatter)
 
-    return (scatter,)
+    # update arrows
+    xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
+    quiver.set_offsets(np.column_stack((xs, ys)))
+    quiver.set_UVC(U_plot, V_plot)
+
+    return (scatter, quiver)
+
+
+
+
+def get_data_for_module_id(modlist, id):
+    '''Returns data of module i'''
+
+    for mod in modlist:
+        if mod[ID] == int(id):
+            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n Humidity: {mod[HUMIDITY]} \n Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
+    return "Invalid ID"
         
 # User Interface
 def interface():
@@ -257,7 +286,287 @@ def interface():
     myLabel = tk.Label(root, text=output)
     myLabel.pack()
 
+# _anim = None
+
+
+def fit_linear_pressure_plane(xs, ys, ps):
+    a_matrix = np.column_stack([xs, ys, np.ones(len(xs))])
+    coeffs, *_ = np.linalg.lstsq(a_matrix, ps, rcond=None)
+    a, b, c = coeffs
+    return a, b, c
+
+def plot_realtime_pressure_map():
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    state = {
+        "scatter": None,
+        "annot": None,
+        "sensor_ids": [],
+        "records": {},
+        "positions": {},
+        "fixed_xlim": None,
+        "fixed_ylim": None,
+    }
+
+    def make_annotation():
+        annot = ax.annotate(
+            "",
+            xy=(0, 0),
+            xytext=(16, 16),
+            textcoords="offset points",
+            bbox=dict(
+                boxstyle="round,pad=0.6",
+                fc="white",
+                ec="0.4",
+                alpha=0.98,
+            ),
+            fontsize=10,
+        )
+        annot.set_visible(False)
+        return annot
+
+    def draw_waiting_screen(message="Waiting for MQTT sensor data..."):
+        ax.clear()
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        ax.text(
+            0.5,
+            0.5,
+            message,
+            ha="center",
+            va="center",
+            fontsize=12,
+            transform=ax.transAxes,
+            color="0.35",
+        )
+
+        state["scatter"] = None
+        state["annot"] = None
+        state["sensor_ids"] = []
+        state["records"] = {}
+        state["positions"] = {}
+        state["fixed_xlim"] = None
+        state["fixed_ylim"] = None
+
+    def draw_frame(records):
+        sensor_ids = [sid for sid in SENSOR_POSITIONS if sid in records]
+
+        if not sensor_ids:
+            draw_waiting_screen("No valid sensor records received yet.")
+            return
+
+        positions = {sid: SENSOR_POSITIONS[sid] for sid in sensor_ids}
+        pressures = np.array([records[sid]["pressure"] for sid in sensor_ids], dtype=float)
+
+        node_xs = np.array([positions[sid][0] for sid in sensor_ids], dtype=float)
+        node_ys = np.array([positions[sid][1] for sid in sensor_ids], dtype=float)
+
+        ax.clear()
+
+        if state["fixed_xlim"] is None or state["fixed_ylim"] is None:
+            fixed_margin = 0.8
+            state["fixed_xlim"] = (
+                float(node_xs.min()) - fixed_margin,
+                float(node_xs.max()) + fixed_margin,
+            )
+            state["fixed_ylim"] = (
+                float(node_ys.min()) - fixed_margin,
+                float(node_ys.max()) + fixed_margin,
+            )
+
+        x_min, x_max = state["fixed_xlim"]
+        y_min, y_max = state["fixed_ylim"]
+
+        if len(sensor_ids) >= 3:
+            a, b, c = fit_linear_pressure_plane(node_xs, node_ys, pressures)
+            grid_x = np.linspace(x_min, x_max, 120)
+            grid_y = np.linspace(y_min, y_max, 120)
+            xx, yy = np.meshgrid(grid_x, grid_y)
+            zz = a * xx + b * yy + c
+
+            ax.contourf(xx, yy, zz, levels=20, cmap="coolwarm", alpha=0.35)
+            ax.contour(xx, yy, zz, levels=8, colors="gray", linewidths=0.7, alpha=0.5)
+
+        scatter = ax.scatter(
+            node_xs,
+            node_ys,
+            s=180,
+            c=pressures,
+            cmap="coolwarm",
+            edgecolors="black",
+            linewidths=1.0,
+            zorder=3,
+        )
+
+        for sid in sensor_ids:
+            x, y = positions[sid]
+            ax.text(x + 0.05, y + 0.05, str(sid), fontsize=10, zorder=4)
+            ax.text(
+                x + 0.05,
+                y - 0.12,
+                f"{records[sid]['pressure']:.2f} hPa",
+                fontsize=8,
+                color="0.25",
+                zorder=4,
+            )
+
+        ax.set_title("Pressure Map (Linear Interpolation Assumption)", fontsize=12)
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+
+        annot = make_annotation()
+
+        state["scatter"] = scatter
+        state["annot"] = annot
+        state["sensor_ids"] = sensor_ids
+        state["records"] = records
+        state["positions"] = positions
+
+    def update_annotation(ind):
+        index = ind["ind"][0]
+        sensor_id = state["sensor_ids"][index]
+        record = state["records"][sensor_id]
+        x, y = state["positions"][sensor_id]
+
+        annot = state["annot"]
+        annot.xy = (x, y)
+        annot.set_text(
+            f"{sensor_id}\n"
+            f"Pressure: {record['pressure']:.2f} hPa\n"
+            f"Temperature: {record['temperature']:.2f} °C\n"
+            f"Humidity: {record['humidity']:.2f} %\n"
+            f"Gas: {record['gas']}"
+        )
+
+    def on_hover(event):
+        scatter = state["scatter"]
+        annot = state["annot"]
+
+        if scatter is None or annot is None:
+            return
+
+        if event.inaxes == ax:
+            contains, ind = scatter.contains(event)
+            if contains:
+                update_annotation(ind)
+                annot.set_visible(True)
+                fig.canvas.draw_idle()
+            else:
+                if annot.get_visible():
+                    annot.set_visible(False)
+                    fig.canvas.draw_idle()
+
+    def refresh(_):
+        try:
+            with records_lock:
+                records_copy = dict(latest_records)
+
+            if not records_copy:
+                draw_waiting_screen("Waiting for MQTT sensor data...")
+                return
+
+            draw_frame(records_copy)
+
+        except Exception as e:
+            draw_waiting_screen(f"Update failed:\n{e}")
+
+    fig.canvas.mpl_connect("motion_notify_event", on_hover)
+
+    refresh(0)
+
+    # global _anim
+    # _anim = FuncAnimation(fig, refresh, interval=1000, cache_frame_data=False)
+
+    plt.tight_layout()
+    plt.show(block=True)
+
 # RUN
+
+
+
+def compute_weighted_wind_vectors(modlist):
+    """
+    For each node, compute one combined wind-direction proxy vector
+    using all pairwise pressure differences.
+
+    Returns:
+        xs, ys, U_plot, V_plot
+    """
+    n = len(modlist)
+
+    xs = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
+    ys = np.array(get_values_list(modlist, LATITUDE), dtype=float)
+    ps = np.array(get_values_list(modlist, PRESSURE), dtype=float)
+
+    U = np.zeros(n, dtype=float)
+    V = np.zeros(n, dtype=float)
+
+    for i in range(n):
+        vx = 0.0
+        vy = 0.0
+        total_weight = 0.0
+
+        for j in range(n):
+            if i == j:
+                continue
+
+            dx = xs[j] - xs[i]
+            dy = ys[j] - ys[i]
+            dist = np.hypot(dx, dy)
+
+            if dist < 1e-9:
+                continue
+
+            # unit vector from node i to node j
+            ux = dx / dist
+            uy = dy / dist
+
+            # pressure difference
+            delta_p = ps[i] - ps[j]
+
+            # weight: bigger pressure difference + closer distance => stronger effect
+            weight = abs(delta_p) / dist
+
+            # if ps[i] > ps[j], contribution points from i toward j
+            # if ps[i] < ps[j], contribution points opposite to (i->j)
+            vx += weight * np.sign(delta_p) * ux
+            vy += weight * np.sign(delta_p) * uy
+            total_weight += weight
+
+        if total_weight > 0:
+            U[i] = vx / total_weight
+            V[i] = vy / total_weight
+        else:
+            U[i] = 0.0
+            V[i] = 0.0
+
+    # normalize for display so arrows are visible and similar in length
+    mags = np.hypot(U, V)
+    U_plot = np.zeros_like(U)
+    V_plot = np.zeros_like(V)
+
+    nonzero = mags > 1e-9
+    if np.any(nonzero):
+        display_len = 1.2   # arrow display length on the graph
+        U_plot[nonzero] = U[nonzero] / mags[nonzero] * display_len
+        V_plot[nonzero] = V[nonzero] / mags[nonzero] * display_len
+
+    return xs, ys, U_plot, V_plot
+
+
+
 
 if __name__ == "__main__":
 
@@ -265,12 +574,12 @@ if __name__ == "__main__":
     while not initial:
         initial = get_current_modules()
     print("EEE", initial)
-    fig, ax, scatter, cbar = initialize_module_plot(initial)
+    fig, ax, scatter, cbar, quiver = initialize_module_plot(initial)
     ani = FuncAnimation(
         fig,
         update_modules,
         interval=500,
-        fargs=(scatter, cbar),
+        fargs=(scatter, cbar, quiver),
         cache_frame_data=False
     )
 
