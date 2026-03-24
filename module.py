@@ -1,6 +1,7 @@
 import wifi
 import socketpool
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
+import adafruit_requests
 import board
 import adafruit_bme680
 import json
@@ -82,16 +83,11 @@ photoresistor = analogio.AnalogIn(photoresistor_pin)
 ADC_REF = photoresistor.reference_voltage
 
 def get_air_quality_proxy(gas_resistance):
-    # ideally, we would use the Bosch BSEC Library
-    # however that is only compatible with arduinos and is closed source
-    # this is a proxy
     return (gas_resistance-BME_GAS_MIN)/(BME_GAS_THRESHOLD-BME_GAS_MIN)
 
 def get_lux_proxy(adc_value):
     voltage = ADC_REF * (float(adc_value)/float(ADC_HIGH))
     v = max(min(voltage, PHOTORESISTOR_MAX), PHOTORESISTOR_MIN)
-
-    # Inverted so smaller = darker
     return (PHOTORESISTOR_MAX-v) / (PHOTORESISTOR_MAX - PHOTORESISTOR_MIN)
 
 def get_gps_data(gps: adafruit_gps.GPS):
@@ -100,12 +96,43 @@ def get_gps_data(gps: adafruit_gps.GPS):
     return gps.latitude, gps.longitude
 
 # Allow pico to communicate with GPS
-tx_pin = board.GP0  # can be any pin marked TX (see pin map diagram)
-rx_pin = board.GP1  # can be any pin marked RX (see pin map diagram)
+tx_pin = board.GP0  
+rx_pin = board.GP1  
 uart = busio.UART(tx_pin, rx_pin, baudrate=9600, timeout=10)
 
-# Temporarily turning debug to True so you can watch the fix happen!
+# Initialize GPS
 gps = adafruit_gps.GPS(uart, debug = True) 
+
+# --- THE A-GPS WI-FI HACK ---
+print("Attempting to fetch rough Wi-Fi location for A-GPS...")
+try:
+    # 1. Ask the internet where our Wi-Fi IP address is located
+    requests = adafruit_requests.Session(pool, ssl_context)
+    response = requests.get("http://ip-api.com/json/")
+    geo_data = response.json()
+    response.close()
+    
+    rough_lat = geo_data["lat"]
+    rough_lon = geo_data["lon"]
+    print(f"Wi-Fi Location Found: {rough_lat}, {rough_lon}")
+    
+    # 2. Grab the exact time we already synced from the NTP server
+    t = rtc.RTC().datetime
+    
+    # 3. Construct the secret PMTK741 injection command
+    # Format: PMTK741,Lat,Long,Alt,YYYY,MM,DD,hh,mm,ss
+    pmtk_str = "PMTK741,{},{},0,{:04d},{:02d},{:02d},{:02d},{:02d},{:02d}".format(
+        rough_lat, rough_lon, 
+        t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec
+    )
+    
+    # 4. Inject it into the GPS brain!
+    print("Injecting A-GPS data into module...")
+    gps.send_command(pmtk_str.encode("utf-8"))
+    
+except Exception as e:
+    print(f"A-GPS Injection Failed (continuing to normal Cold Start): {e}")
+# -----------------------------
 
 # Turn on the basic GGA and RMC info (REQUIRED for has_fix to work!)
 gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
