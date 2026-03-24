@@ -30,8 +30,9 @@ def on_message(client, userdata, msg):
         modules[module_id] = []
 
     modules[module_id].append(data)
-    print(f"[{module_id}] temp={data[TEMPERATURE]}C pressure={data[PRESSURE]}  gas={data[GAS]}ohms")
-
+    #print(f"[{module_id}] temp={data[TEMPERATURE]}C pressure={data[PRESSURE]}  gas={data[GAS]}ohms")
+    print(data)
+    
     # Compute the wind proxy
     pairs = compute_wind_proxy()
     if pairs:
