@@ -509,7 +509,6 @@ def compute_weighted_wind_vectors(modlist):
     xs = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     ys = np.array(get_values_list(modlist, LATITUDE), dtype=float)
     ps = np.array(get_values_list(modlist, PRESSURE), dtype=float)
-
     U = np.zeros(n, dtype=float)
     V = np.zeros(n, dtype=float)
 
@@ -559,11 +558,10 @@ def compute_weighted_wind_vectors(modlist):
 
     nonzero = mags > 1e-9
     if np.any(nonzero):
-        display_len = 1.2   # arrow display length on the graph
+        display_len = 0.25   # arrow display length on the graph
         U_plot[nonzero] = U[nonzero] / mags[nonzero] * display_len
         V_plot[nonzero] = V[nonzero] / mags[nonzero] * display_len
 
-    return xs, ys, U_plot, V_plot
 
 
 
