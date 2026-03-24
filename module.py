@@ -27,8 +27,6 @@ PHOTORESISTOR_MAX = 3.115979861111111  # volts
 wifi.radio.connect(WIFI_SSID, WIFI_PASSWORD)
 print(f"Successfully Connected to {WIFI_SSID}")
 
-time.sleep(5)
-
 # Create a socket
 pool = socketpool.SocketPool(wifi.radio)
 
@@ -64,8 +62,8 @@ mqtt_client = MQTT.MQTT(
     client_id = str(MODULE_ID),
     is_ssl=True,
     keep_alive = 60
-    )
-# mqtt_client.logger = mqtt_logger
+)
+mqtt_client.logger = mqtt_logger
 
 print("Connecting to HiveMQ Cloud...")
 mqtt_client.connect()
@@ -98,56 +96,60 @@ def get_lux_proxy(adc_value):
 
 def get_gps_data(gps: adafruit_gps.GPS):
     if not gps.has_fix:
-        return None, None
+        return -3, -3
     return gps.latitude, gps.longitude
 
 # Allow pico to communicate with GPS
-tx_pin = board.GP16  # can be any pin marked TX (see pin map diagram)
-rx_pin = board.GP17  # can be any pin marked RX (see pin map diagram)
+tx_pin = board.GP0  # can be any pin marked TX (see pin map diagram)
+rx_pin = board.GP1  # can be any pin marked RX (see pin map diagram)
 uart = busio.UART(tx_pin, rx_pin, baudrate=9600, timeout=10)
 
-gps = adafruit_gps.GPS(uart, debug = False)
+# Temporarily turning debug to True so you can watch the fix happen!
+gps = adafruit_gps.GPS(uart, debug = True) 
 
-
-# Turn on just minimum info (RMC only, location):
-gps.send_command(b'PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
+# Turn on the basic GGA and RMC info (REQUIRED for has_fix to work!)
+gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
 gps.send_command(b"PMTK220,1000")  # 1Hz update rate
 
-#* Other options for info
-#? Turn on the basic GGA and RMC info
-# gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
-#? Turn on the basic GGA and RMC info + VTG for speed in km/h
-# gps.send_command(b"PMTK314,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
-#? Turn off everything:
-# gps.send_command(b'PMTK314,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
-#? Turn on everything
-# gps.send_command(b'PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0')
+x = []
 
 # Data sending loop
-while True:
-    try:
-        mqtt_client.loop()
-    except Exception as e:
-        print("MQTT Loop Error:", e)
-    gps.update()
+last_transmit = time.monotonic()
 
-    latitude, longitude = get_gps_data(gps)
+try:
+    while True:
+        # 1. Empty the GPS buffer CONSTANTLY (No sleeping allowed!)
+        gps.update()
 
-    # Convert python dictionary to json
-    string = json.dumps({
-        ID: MODULE_ID, 
-        TEMPERATURE: bme.temperature, 
-        HUMIDITY: bme.relative_humidity, 
-        PRESSURE: bme.pressure, 
-        GAS: get_air_quality_proxy(bme.gas), 
-        LIGHT: get_lux_proxy(photoresistor.value), 
-        LATITUDE: latitude,
-        LONGITUDE: longitude
-        })
-    
-    # Send json string to laptop under station/m#/data
-    mqtt_client.publish("station/" + str(MODULE_ID) + '/data', string)
-    print("Sent:", string)
-    
-    # Wait 1 second to send at 1Hz
-    time.sleep(1)
+        # 2. Maintain the MQTT heartbeat CONSTANTLY
+        try:
+            mqtt_client.loop()
+        except Exception as e:
+            print("MQTT Loop Error:", e)
+
+        # 3. Check the stopwatch. Has 1 second passed?
+        current_time = time.monotonic()
+        if current_time - last_transmit >= 1.0:
+            last_transmit = current_time  # Reset the stopwatch
+
+            # --- ONLY DO THIS ONCE PER SECOND ---
+            latitude, longitude = get_gps_data(gps)
+
+            # Convert python dictionary to json
+            string = json.dumps({
+                ID: MODULE_ID, 
+                TEMPERATURE: bme.temperature, 
+                HUMIDITY: bme.relative_humidity, 
+                PRESSURE: bme.pressure, 
+                GAS: get_air_quality_proxy(bme.gas), 
+                LIGHT: get_lux_proxy(photoresistor.value), 
+                LATITUDE: latitude,
+                LONGITUDE: longitude
+            })
+            
+            # Send json string to laptop
+            mqtt_client.publish("station/" + str(MODULE_ID) + '/data', string)
+            print("Sent:", string)
+
+except KeyboardInterrupt:
+    print(x)
