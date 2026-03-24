@@ -65,7 +65,7 @@ def compute_wind_proxy():
 
             pairs.append({MODULE_A: id_a, MODULE_B: id_b, DELTA_P: delta_p, MAGNITUDE: magnitude})
 
-            return pairs
+    return pairs
 
 def get_data():
     output = []
