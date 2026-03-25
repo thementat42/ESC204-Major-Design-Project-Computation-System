@@ -90,6 +90,7 @@ def get_data():
             }
             # Convert dict to json string
             output.append(json.dumps(filtered))
+            print("get_data:", output)
 
     # Run wind proxy calculation
     pairs = compute_wind_proxy()

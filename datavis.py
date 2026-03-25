@@ -122,7 +122,7 @@ module3_data = f"""
 
 # MQTT Functions
 
-USE_MQTT = False
+USE_MQTT = True
 TEST_STRINGS = sample
 # TEST_STRINGS = [module1_data, module2_data, module3_data]
 
@@ -245,7 +245,7 @@ def identify_fire(mod):
     return False
 
 
-def update_modules(scatter, cbar):
+def update_modules():
     '''Continuously updates values (animation function for heatmap)'''
 
     # Get module list
@@ -255,6 +255,10 @@ def update_modules(scatter, cbar):
     temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
     long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
+
+    initialize_module_plot(modlist)
+
+    plt.cla()
 
     scatter.set_offsets(np.column_stack((long, lat)))
     scatter.set_array(temps)
@@ -268,7 +272,9 @@ def update_modules(scatter, cbar):
     quiver.set_offsets(np.column_stack((xs, ys)))
     quiver.set_UVC(U_plot, V_plot)
 
-    return (scatter, quiver)
+    plt.tight_layout()
+
+    # return (scatter, quiver)
 
 def get_data_for_module_id(modlist, id):
     '''Returns data of module i'''
@@ -362,6 +368,7 @@ if __name__ == "__main__":
         initial = get_current_modules()
     print("EEE", initial)
     fig, ax, scatter, cbar, quiver = initialize_module_plot(initial)
+    
     ani = FuncAnimation(
         fig,
         update_modules,
@@ -369,7 +376,6 @@ if __name__ == "__main__":
         fargs=(scatter, cbar, quiver),
         cache_frame_data=False
     )
-
     plt.tight_layout()
     plt.show(block=False)
 
