@@ -90,16 +90,15 @@ def get_data():
             }
             # Convert dict to json string
             output.append(json.dumps(filtered))
-            print("get_data:", output)
 
     # Run wind proxy calculation
     pairs = compute_wind_proxy()
 
     # Append wind proxy calculations
-    if pairs:
-        output.append(json.dumps({WIND_PROXY: pairs}))
+    # if pairs:
+    #     output.append(json.dumps({WIND_PROXY: pairs}))
 
-    return output
+    return output, pairs
 
 # Create MQTT client and wire to functions
 client = mqtt.Client(CallbackAPIVersion.VERSION2)

@@ -120,38 +120,40 @@ module3_data = f"""
 
 """
 
+latest_wind_pairs = []
+
+def get_current_data():
+    """Return (modules, wind_pairs)."""
+    global latest_wind_pairs
+
+    if not USE_MQTT:
+        parsed = [json.loads(s) for s in TEST_STRINGS]
+        modules = [d for d in parsed if isinstance(d, dict) and ID in d]
+        wind = []
+        for d in parsed:
+            if isinstance(d, dict) and WIND_PROXY in d:
+                wind = d[WIND_PROXY] or []
+                break
+        latest_wind_pairs = wind
+        return modules, wind
+
+    output, pairs = computation.get_data()   # <-- tuple from computation
+    modules = [json.loads(s) for s in output]
+    latest_wind_pairs = pairs or []
+    return modules, latest_wind_pairs
+
+def get_current_modules():
+    modules, _ = get_current_data()
+    return modules
+
+def get_current_wind_pairs():
+    return latest_wind_pairs
+
 # MQTT Functions
 
 USE_MQTT = True
 TEST_STRINGS = sample
 # TEST_STRINGS = [module1_data, module2_data, module3_data]
-
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        print("Connected to MQTT broker.")
-        client.subscribe(MQTT_TOPIC)
-        print(f"Subscribed to topic: {MQTT_TOPIC}")
-    else:
-        print(f"Failed to connect to MQTT broker. Return code: {rc}")
-
-
-def on_message(client, userdata, msg):
-    try:
-        payload = json.loads(msg.payload.decode("utf-8"))
-        sensor_id = payload.get("id")
-        if sensor_id:
-            with records_lock:
-                latest_records[sensor_id] = payload
-    except Exception as e:
-        print("Failed to parse MQTT message:", e)
-
-def get_current_modules():
-    if not USE_MQTT:
-        return create_module_list(TEST_STRINGS)
-    temp = computation.get_data()
-    for i in range(len(temp)):
-        temp[i] = json.loads(temp[i])
-    return temp
 
 # Data vis helpers
 
@@ -229,36 +231,22 @@ def initialize_module_plot(modlist):
 
     return fig, ax, scatter, cbar, quiver
 
-
-def get_data_for_module_id(modlist, id):
-    '''Returns data of module i'''
-
-    for mod in modlist:
-        if mod[ID] == int(id):
-            return f"Module {mod[ID]} \n Temperature: {mod[TEMPERATURE]} \n  Pressure: {mod[PRESSURE]} \n Air Quality: {mod[GAS]} \n Light: {mod[LIGHT]} \n Coordinates: {(mod[LONGITUDE], mod[LATITUDE])}"
-    return "Invalid ID"
-
 def identify_fire(mod):
     """Returns True if a module meets the threshold criteria to identify a fire"""
     if (mod[TEMPERATURE] >= 80) and (mod[LIGHT] >= 1):
         return True
     return False
 
-
-def update_modules():
+def update_modules(_frame, ax, scatter, cbar, quiver_holder):
     '''Continuously updates values (animation function for heatmap)'''
 
-    # Get module list
     modlist = get_current_modules()
+    if not modlist:
+        return scatter, quiver_holder["artist"]
 
-    # Set up heat map
     temps = np.array(get_values_list(modlist, TEMPERATURE), dtype=float)
     long = np.array(get_values_list(modlist, LONGITUDE), dtype=float)
     lat = np.array(get_values_list(modlist, LATITUDE), dtype=float)
-
-    initialize_module_plot(modlist)
-
-    plt.cla()
 
     scatter.set_offsets(np.column_stack((long, lat)))
     scatter.set_array(temps)
@@ -267,14 +255,29 @@ def update_modules():
         scatter.set_clim(float(temps.min()), float(temps.max()))
         cbar.update_normal(scatter)
 
-    # update arrows
     xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
-    quiver.set_offsets(np.column_stack((xs, ys)))
-    quiver.set_UVC(U_plot, V_plot)
 
-    plt.tight_layout()
+    q = quiver_holder["artist"]
+    n_new = U_plot.size
 
-    # return (scatter, quiver)
+    # Quiver cannot change arrow count via set_UVC; recreate if size changed
+    if q.N != n_new:
+        q.remove()
+        q = ax.quiver(
+            xs, ys, U_plot, V_plot,
+            angles="xy",
+            scale_units="xy",
+            scale=1,
+            color="black",
+            width=0.004,
+            zorder=4
+        )
+        quiver_holder["artist"] = q
+    else:
+        q.set_offsets(np.column_stack((xs, ys)))
+        q.set_UVC(U_plot, V_plot)
+
+    return scatter, quiver_holder["artist"]
 
 def get_data_for_module_id(modlist, id):
     '''Returns data of module i'''
@@ -366,16 +369,19 @@ if __name__ == "__main__":
     initial = []
     while not initial:
         initial = get_current_modules()
-    print("EEE", initial)
+
     fig, ax, scatter, cbar, quiver = initialize_module_plot(initial)
-    
+
+    quiver_holder = {"artist": quiver}
+
     ani = FuncAnimation(
         fig,
         update_modules,
         interval=500,
-        fargs=(scatter, cbar, quiver),
+        fargs=(ax, scatter, cbar, quiver_holder),
         cache_frame_data=False
     )
+
     plt.tight_layout()
     plt.show(block=False)
 
