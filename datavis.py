@@ -208,7 +208,7 @@ def initialize_module_plot(modlist):
     fig, ax = plt.subplots(figsize=(10, 6))
     scatter = ax.scatter(fires_x, fires_y, color="red", s=500, marker="o", alpha=0.3)
     scatter = ax.scatter(long, lat, c=temps, marker="s", alpha=0.6, cmap="coolwarm")
-    ax.text(min(long), max(lat), f"Rate of spread: {rate_of_spread} m/s")
+    ros_text = ax.text(min(long), max(lat), f"Rate of spread: {rate_of_spread} m/s")
     cbar = fig.colorbar(scatter, ax=ax, label="Temperature")
 
     # create initial arrows
@@ -228,7 +228,7 @@ def initialize_module_plot(modlist):
     ax.set_ylabel("Latitude")
     # ax.set_ylim(min(lat) + min(lat)*0.05, max(lat) - max(lat)*0.05)
 
-    return fig, ax, scatter, cbar, quiver
+    return fig, ax, scatter, cbar, quiver, ros_text
 
 def identify_fire(mod):
     """Returns True if a module meets the threshold criteria to identify a fire"""
@@ -236,8 +236,9 @@ def identify_fire(mod):
         return True
     return False
 
-def update_modules(_frame, ax, scatter, cbar, quiver_holder):
+def update_modules(_frame, ax, scatter, cbar, quiver_holder, ros_text):
     '''Continuously updates values (animation function for heatmap)'''
+    start = time.perf_counter()
 
     modlist = get_current_modules()
     if not modlist:
@@ -261,21 +262,48 @@ def update_modules(_frame, ax, scatter, cbar, quiver_holder):
             fires_x.append(mod[LONGITUDE])
             fires_y.append(mod[LATITUDE])
 
+    # Compute rate of spread
+    fire_positions = []
+    times = []
+    for mod in modlist:
+        if identify_fire(mod) and ((mod[LONGITUDE], mod[LATITUDE]) not in fire_positions):
+                fire_positions.append((mod[LONGITUDE], mod[LATITUDE]))
+                end = time.time()
+                timing = end - start
+                times.append(timing)
+
+    rate_of_spread = 0
+    
+    if len(fire_positions) > 1:
+        fire_plots = []
+        for index in range(len(fire_positions)):
+            fire_plots.append((((fire_positions[0][0] - fire_positions[index][0])*2) + ((fire_positions[0][1] - fire_positions[index][1])*2))*(0.5))
+
+        rate_of_spread, _ = np.polyfit(fire_plots, times, 1)
+
+    if len(fire_positions) > 1:
+        fire_plots = []
+        for index in range(len(fire_positions)):
+            fire_plots.append((((fire_positions[0][0] - fire_positions[index][0])*2) + ((fire_positions[0][1] - fire_positions[index][1])*2))*(0.5))
+
+        rate_of_spread, _ = np.polyfit(fire_plots, times, 1)
+    
+    if not hasattr(update_modules, "_fire_artist"):
+        if len(ax.collections) > 0:
+            update_modules._fire_artist = ax.collections[0] # type: ignore
+        else:
+            update_modules._fire_artist = ax.scatter(  # type: ignore
+                [], [], color="red", s=500, marker="o", alpha=0.3, zorder=5
+            )
+
     fire_offsets = (
         np.column_stack((fires_x, fires_y))
         if len(fires_x) > 0
         else np.empty((0, 2))
     )
 
-    if not hasattr(update_modules, "_fire_artist"):
-        if len(ax.collections) > 0:
-            update_modules._fire_artist = ax.collections[0]
-        else:
-            update_modules._fire_artist = ax.scatter(
-                [], [], color="red", s=500, marker="o", alpha=0.3, zorder=5
-            )
+    update_modules._fire_artist.set_offsets(fire_offsets)  # type: ignore
 
-    update_modules._fire_artist.set_offsets(fire_offsets)
 
     xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
 
@@ -298,6 +326,9 @@ def update_modules(_frame, ax, scatter, cbar, quiver_holder):
     else:
         q.set_offsets(np.column_stack((xs, ys)))
         q.set_UVC(U_plot, V_plot)
+    
+    ros_text.set_position((float(np.min(long)), float(np.max(lat))))
+    ros_text.set_text(f"Rate of spread: {rate_of_spread:.3f} m/s")
 
     return scatter, quiver_holder["artist"]
 
@@ -392,7 +423,7 @@ if __name__ == "__main__":
     while not initial:
         initial = get_current_modules()
 
-    fig, ax, scatter, cbar, quiver = initialize_module_plot(initial)
+    fig, ax, scatter, cbar, quiver, ros_text = initialize_module_plot(initial)
 
     quiver_holder = {"artist": quiver}
 
@@ -400,7 +431,7 @@ if __name__ == "__main__":
         fig,
         update_modules,
         interval=500,
-        fargs=(ax, scatter, cbar, quiver_holder),
+        fargs=(ax, scatter, cbar, quiver_holder,ros_text),
         cache_frame_data=False
     )
 
