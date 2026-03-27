@@ -111,28 +111,23 @@ gps = adafruit_gps.GPS(uart, debug = True)
 gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
 gps.send_command(b"PMTK220,1000")  # 1Hz update rate
 
-x = []
-
 # Data sending loop
 last_transmit = time.monotonic()
 
 try:
     while True:
-        # 1. Empty the GPS buffer CONSTANTLY (No sleeping allowed!)
+        # Maintain GPS and MQTT to avoid any timeout
         gps.update()
-
-        # 2. Maintain the MQTT heartbeat CONSTANTLY
         try:
             mqtt_client.loop()
         except Exception as e:
             print("MQTT Loop Error:", e)
 
-        # 3. Check the stopwatch. Has 1 second passed?
+        # Check that one time has passed to ensure we're only transmitting at 1 Hz
         current_time = time.monotonic()
         if current_time - last_transmit >= 1.0:
             last_transmit = current_time  # Reset the stopwatch
 
-            # --- ONLY DO THIS ONCE PER SECOND ---
             latitude, longitude = get_gps_data(gps)
 
             # Convert python dictionary to json
@@ -151,5 +146,5 @@ try:
             mqtt_client.publish("station/" + str(MODULE_ID) + '/data', string)
             print("Sent:", string)
 
-except KeyboardInterrupt:
-    print(x)
+except KeyboardInterrupt:  # Clean exit instead of hard crash
+    pass
