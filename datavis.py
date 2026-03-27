@@ -170,7 +170,6 @@ def get_values_list(modlist, metric):
     return[module[metric] for module in modlist]
 
 def initialize_module_plot(modlist):
-
     start = time.time()
 
     # Set up heat map
@@ -254,6 +253,29 @@ def update_modules(_frame, ax, scatter, cbar, quiver_holder):
     if temps.size > 0:
         scatter.set_clim(float(temps.min()), float(temps.max()))
         cbar.update_normal(scatter)
+    
+    fires_x = []
+    fires_y = []
+    for mod in modlist:
+        if identify_fire(mod):
+            fires_x.append(mod[LONGITUDE])
+            fires_y.append(mod[LATITUDE])
+
+    fire_offsets = (
+        np.column_stack((fires_x, fires_y))
+        if len(fires_x) > 0
+        else np.empty((0, 2))
+    )
+
+    if not hasattr(update_modules, "_fire_artist"):
+        if len(ax.collections) > 0:
+            update_modules._fire_artist = ax.collections[0]
+        else:
+            update_modules._fire_artist = ax.scatter(
+                [], [], color="red", s=500, marker="o", alpha=0.3, zorder=5
+            )
+
+    update_modules._fire_artist.set_offsets(fire_offsets)
 
     xs, ys, U_plot, V_plot = compute_weighted_wind_vectors(modlist)
 
@@ -349,7 +371,7 @@ def compute_weighted_wind_vectors(modlist):
 
     nonzero = mags > 1e-9
     if np.any(nonzero):
-        display_len = 0.45e-3   # arrow display length on the graph
+        display_len = 0.05   # arrow display length on the graph
         U_plot[nonzero] = U[nonzero] / mags[nonzero] * display_len
         V_plot[nonzero] = V[nonzero] / mags[nonzero] * display_len
 
