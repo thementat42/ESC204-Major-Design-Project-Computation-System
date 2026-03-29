@@ -1,3 +1,4 @@
+Room temperature: 23 ± 0.5 degrees
 "temperature": 22.7847
 "temperature": 22.7958
 "temperature": 22.8196
@@ -16,5 +17,3 @@
 "temperature": 22.9208
 "temperature": 22.9193
 "temperature": 22.9171
-
-Room temperature: 23 ± 0.5 degrees
