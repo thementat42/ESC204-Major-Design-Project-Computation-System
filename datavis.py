@@ -151,7 +151,7 @@ def get_current_wind_pairs():
 
 # MQTT Functions
 
-USE_MQTT = True
+USE_MQTT = False #HIGHLIGHTING####################################################################################
 TEST_STRINGS = sample
 # TEST_STRINGS = [module1_data, module2_data, module3_data]
 
